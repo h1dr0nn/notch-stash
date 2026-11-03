@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0 — 2026-11-03
+## 0.5.1 — 2026-11-03
 
 ### Added
 - Release builds on GitHub Actions: `develop-v*` tags create a draft release, `release-v*` tags publish one. Each release has a DMG installer and a zip.
