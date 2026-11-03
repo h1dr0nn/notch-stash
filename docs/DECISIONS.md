@@ -27,3 +27,4 @@
 - **Builds are not notarized.** There is no Developer ID; the README walks users through Open Anyway.
 - **Hosting views never size their window (`sizingOptions = []`).** By default `NSHostingView` grows the window to the SwiftUI content's minimum size; the closed notch window became 580 pt wide from the notch's left edge, which moved the drop target off the notch and made the shelf slide in from the left.
 - **Drops handled by an AppKit view.** SwiftUI `onDrop` never fired inside the non-activating panels; a plain `NSView` registered for file URLs wraps the SwiftUI content in both shelves.
+- **Haptics only for pointer hovers.** macOS taps the trackpad by itself when a dragged file reaches the notch, even when the shelf stays closed; adding our own tap on drag-open made it feel doubled.
