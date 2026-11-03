@@ -15,13 +15,18 @@ final class ShelfCoordinator {
     private var mouseMonitors: [Any] = []
     private var dragChangeCountAtMouseDown = NSPasteboard(name: .drag).changeCount
     private var isFileDragActive = false
+    /// Tracked from the floating panel's callbacks; `panel.isVisible` stays true while it fades out.
+    private var isFloatingShown = false
     private var pruneTimer: Timer?
     private var cancellable: AnyCancellable?
 
-    var isFloatingVisible: Bool { floating.isVisible }
+    var isFloatingVisible: Bool { isFloatingShown }
 
     func start() {
-        floating.onVisibilityChanged = { [weak self] _ in self?.applySettings() }
+        floating.onVisibilityChanged = { [weak self] visible in
+            self?.isFloatingShown = visible
+            self?.applySettings()
+        }
         rebuildNotchWindows()
         settings.objectWillChange
             .receive(on: DispatchQueue.main)
@@ -57,7 +62,7 @@ final class ShelfCoordinator {
 
     func toggle() {
         guard settings.floatingEnabled else { return }
-        if floating.isVisible {
+        if isFloatingShown {
             floating.hide()
         } else {
             showFloating()
@@ -133,7 +138,7 @@ final class ShelfCoordinator {
 
     private func applySettings() {
         if !settings.floatingEnabled { floating.hide() }
-        let notchEnabled = settings.notchEnabled && !floating.isVisible
+        let notchEnabled = settings.notchEnabled && !isFloatingShown
         notchControllers.forEach {
             $0.isEnabled = notchEnabled
             $0.opensOnHover = settings.openNotchOnHover
