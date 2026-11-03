@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "develop-v*"
+      - "release-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+
+      - name: Read version from tag
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          echo "VERSION=${TAG#*-v}" >> "$GITHUB_ENV"
+          if [[ "$TAG" == release-v* ]]; then echo "CHANNEL=release" >> "$GITHUB_ENV"; else echo "CHANNEL=develop" >> "$GITHUB_ENV"; fi
+
+      - name: Test
+        run: swift test
+
+      - name: Build app
+        run: ./scripts/build-app.sh
+
+      - name: Package
+        run: ditto -c -k --keepParent "build/Notch Stash.app" "build/NotchStash-${VERSION}.zip"
+
+      - name: Release notes
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## " v "( |$)" { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > build/notes.md
+          if [ ! -s build/notes.md ]; then echo "Notch Stash ${VERSION}" > build/notes.md; fi
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FLAGS=(--title "Notch Stash ${VERSION}" --notes-file build/notes.md)
+          if [ "$CHANNEL" = "develop" ]; then FLAGS+=(--draft --prerelease); else FLAGS+=(--latest); fi
+          gh release create "$GITHUB_REF_NAME" "build/NotchStash-${VERSION}.zip" "${FLAGS[@]}"
