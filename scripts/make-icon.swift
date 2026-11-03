@@ -1,6 +1,6 @@
 // Applies the macOS app icon template to square artwork and writes an .iconset.
 // 1024 canvas, 824x824 body with continuous (superellipse) corners, 100 px margin, soft drop shadow.
-// Usage: swift scripts/make-icon.swift <artwork.png> <out.iconset>
+// Usage: swift scripts/make-icon.swift Resources/AppIcon-artwork.png <out.iconset> && iconutil -c icns <out.iconset> -o Resources/AppIcon.icns
 import AppKit
 
 let arguments = CommandLine.arguments

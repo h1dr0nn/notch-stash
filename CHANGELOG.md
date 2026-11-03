@@ -5,6 +5,7 @@
 ### Added
 - Release builds on GitHub Actions: `develop-v*` tags create a draft release, `release-v*` tags publish one.
 - A prompt on launch explains how to turn on Input Monitoring when the ⌃⌃ shortcut is not allowed yet.
+- New app icon following the macOS icon grid.
 
 ### Fixed
 - ⌃⌃ could work once and then stop: a key listener created before Input Monitoring was granted only sees keys typed into Notch Stash itself. It is now recreated as soon as the permission appears, and the menu shows the real shortcut state.
