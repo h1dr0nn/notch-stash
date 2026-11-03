@@ -13,6 +13,8 @@ final class ShelfCoordinator {
     private var screenObserver: Any?
     private lazy var floating = FloatingController(store: store)
     private var mouseMonitors: [Any] = []
+    private var dragChangeCountAtMouseDown = NSPasteboard(name: .drag).changeCount
+    private var isFileDragActive = false
     private var pruneTimer: Timer?
     private var cancellable: AnyCancellable?
 
@@ -36,14 +38,9 @@ final class ShelfCoordinator {
         let handler: (NSEvent) -> Void = { [weak self] _ in
             MainActor.assumeIsolated { self?.mouseMoved(to: NSEvent.mouseLocation) }
         }
-        if let global = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: handler) {
-            mouseMonitors.append(global)
-        }
-        if let local = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved, handler: { event in
-            handler(event)
-            return event
-        }) {
-            mouseMonitors.append(local)
+        addMouseMonitor(.mouseMoved, handler)
+        addMouseMonitor([.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
+            MainActor.assumeIsolated { self?.mouseButtonEvent(event.type) }
         }
 
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
@@ -78,6 +75,42 @@ final class ShelfCoordinator {
 
     private func mouseMoved(to point: CGPoint) {
         notchControllers.forEach { $0.mouseMoved(to: point) }
+    }
+
+    private func addMouseMonitor(_ mask: NSEvent.EventTypeMask, _ handler: @escaping (NSEvent) -> Void) {
+        if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: handler) {
+            mouseMonitors.append(global)
+        }
+        if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { event in
+            handler(event)
+            return event
+        }) {
+            mouseMonitors.append(local)
+        }
+    }
+
+    /// A file drag from any app shows up as a new drag pasteboard holding file URLs while the button is down.
+    private func mouseButtonEvent(_ type: NSEvent.EventType) {
+        switch type {
+        case .leftMouseDown:
+            dragChangeCountAtMouseDown = NSPasteboard(name: .drag).changeCount
+            isFileDragActive = false
+        case .leftMouseDragged:
+            if !isFileDragActive {
+                let pasteboard = NSPasteboard(name: .drag)
+                guard pasteboard.changeCount != dragChangeCountAtMouseDown,
+                      !DropTargetView.fileURLs(on: pasteboard).isEmpty else { return }
+                isFileDragActive = true
+            }
+            let point = NSEvent.mouseLocation
+            notchControllers.forEach { $0.fileDragMoved(to: point) }
+        case .leftMouseUp:
+            guard isFileDragActive else { return }
+            isFileDragActive = false
+            notchControllers.forEach { $0.fileDragEnded() }
+        default:
+            break
+        }
     }
 
     private func rebuildNotchWindows() {

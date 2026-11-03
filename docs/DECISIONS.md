@@ -7,9 +7,8 @@
 - **Notch window only as large as it needs to be.** Closed: exactly the notch rect (black, invisible against the notch); opened: the shelf size. NotchDrop keeps a full-width transparent window over the top of the screen, which is linked to its Desktop-file and menu bar issues.
 - **Hover detection with global `mouseMoved` monitor.** Works without any permission and regardless of which app is active.
 - **Notch shelf is transient, ⌃⌃ opens the floating shelf.** Opened by hover or by a file drag, the notch shelf folds back once the mouse leaves it (files stay, count in the menu bar). ⌃⌃ always toggles the floating shelf next to the cursor, on any screen, and closes the notch shelf so only one is visible. Any shelf closes when its last file is dragged out.
-- **Nothing drawn over the notch while closed.** A black notch-sized shape showed around the notch on some Spaces and menu bar states; the closed window holds only an opaque black patch slightly smaller than the notch, so the notch itself hides it. Drags pass through transparent and near-transparent pixels, so a see-through patch never received files dragged onto the notch.
+- **No window at the notch while closed.** Any visible patch showed around the notch, and a transparent one lets drags fall through, so the notch window is ordered out when closed. File drags are spotted with a global mouse monitor instead: a drag pasteboard that changed since mouse-down and holds file URLs means a file drag is in progress, and the shelf opens when the pointer comes near the notch.
 - **Shelf content is clipped to the growing shape and fades in after it.** Otherwise the dashed placeholder appeared outside the black background during the spring.
-- **Animation without a big idle window.** On open the window jumps to the shelf size (transparent) and SwiftUI springs the black shape out of the notch; on close the shape springs back and the window shrinks to the notch rect after the animation.
 - **Drag out through an AppKit `NSDraggingSource`.** Gives real file URLs (Finder, Slack, browsers accept them), lets Finder pick Move or Copy, and reports when the drop finished so the item can be removed. Holding ⌥ when the drop ends keeps the item (⌥ also means Copy in Finder).
 - **Items are not persisted across app restarts.** Matches the "later" list in the spec.
 - **UI text in English.** Labels and buttons in Title Case, hints in sentence case.
@@ -18,7 +17,7 @@
 - **Only Copy or Move counts as delivered.** A target that answers with any other drag operation may not have taken the file, so the item stays.
 - **Notch windows rebuilt only when the notch layout changes.** Display sleep, Dock or resolution notifications that keep the same notch rects leave open shelves alone.
 - **Hover opens only from the notch itself.** Reaching the notch is a deliberate gesture; a wider zone would fire while using the menu bar.
-- **Window resizes only outside animations.** Resizing the notch window moves the shape inside it (left edge vs centre); if that lands during a spring, SwiftUI animates the move and the shelf slides sideways. The window grows and is laid out before the open spring starts, and shrinks only in the close animation's completion (`completionCriteria: .removed`).
+- **Notch window keeps one frame.** It is created at the open shelf size and only ordered in and out, so the shape never moves inside it during an animation.
 - **Notch shelf scales from zero at the notch.** No notch-sized block is drawn at any point; the shelf grows from the top centre and shrinks back.
 - **Notch disabled while the floating shelf is open.** Only one shelf is on screen at a time; hover and drag opening resume when the floating shelf closes.
 - **Event tap retried directly, not gated on `CGPreflightListenEventAccess`.** The preflight answer is cached for the life of the process, so a permission granted after launch was never picked up.
@@ -27,3 +26,4 @@
 - **Tag-driven releases.** `develop-v*` tags produce draft pre-releases for testing, `release-v*` tags publish; the version comes from the tag and the notes from CHANGELOG.
 - **Builds are not notarized.** There is no Developer ID; the README walks users through Open Anyway.
 - **Hosting views never size their window (`sizingOptions = []`).** By default `NSHostingView` grows the window to the SwiftUI content's minimum size; the closed notch window became 580 pt wide from the notch's left edge, which moved the drop target off the notch and made the shelf slide in from the left.
+- **Drops handled by an AppKit view.** SwiftUI `onDrop` never fired inside the non-activating panels; a plain `NSView` registered for file URLs wraps the SwiftUI content in both shelves.

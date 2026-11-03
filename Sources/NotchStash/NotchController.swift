@@ -8,9 +8,9 @@ import SwiftUI
 final class NotchModel: ObservableObject {
     @Published var isOpen = false
     @Published var showsShape = false
+    @Published var isDropTargeted = false
     let notchSize: CGSize
     let openedSize: CGSize
-    var onDragTargetChanged: (Bool) -> Void = { _ in }
 
     init(notchSize: CGSize, openedSize: CGSize) {
         self.notchSize = notchSize
@@ -25,14 +25,10 @@ private struct NotchRootView: View {
     let onClose: () -> Void
     let onPreview: (_ urls: [URL], _ index: Int) -> Void
 
-    @State private var dropTargeted = false
-
     var body: some View {
         let open = model.isOpen
         let shape = UnevenRoundedRectangle(bottomLeadingRadius: 24, bottomTrailingRadius: 24)
         ZStack(alignment: .top) {
-            Color.black
-                .frame(width: max(model.notchSize.width - 8, 0), height: max(model.notchSize.height - 4, 0))
             ZStack(alignment: .top) {
                 shape.fill(Color.black)
                 ShelfContentView(store: store, onClose: onClose, onPreview: onPreview, notchSize: model.notchSize)
@@ -49,8 +45,6 @@ private struct NotchRootView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)
-        .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { DropLoader.load($0, into: store) }
-        .onChange(of: dropTargeted) { _, targeted in model.onDragTargetChanged(targeted) }
     }
 }
 
@@ -68,7 +62,6 @@ final class NotchController {
     private let model: NotchModel
     private let panel: ShelfPanel
     private(set) var openReason: OpenReason?
-    private var isDragTargeted = false
     var opensOnHover = true
     var isEnabled = true {
         didSet { if !isEnabled { close("disabled") } }
@@ -100,9 +93,14 @@ final class NotchController {
         )
         let hostingView = NSHostingView(rootView: root)
         hostingView.sizingOptions = []
-        panel.contentView = hostingView
-        model.onDragTargetChanged = { [weak self] targeted in self?.dragTargetChanged(targeted) }
-        setFrame(notchRect)
+        let dropView = DropTargetView(content: hostingView)
+        dropView.onTargetChanged = { [weak self] targeted in self?.model.isDropTargeted = targeted }
+        dropView.onDrop = { [weak self] urls in
+            self?.log.notice("dropped \(urls.count) file(s)")
+            self?.store.add(urls)
+        }
+        panel.contentView = dropView
+        panel.setFrame(openedFrame, display: false)
     }
 
     func open(_ reason: OpenReason) {
@@ -110,10 +108,8 @@ final class NotchController {
         guard isEnabled, !isOpen else { return }
         openReason = reason
         layoutGeneration += 1
-        if panel.frame != openedFrame {
-            setFrame(openedFrame)
-            panel.contentView?.layoutSubtreeIfNeeded()
-        }
+        panel.contentView?.layoutSubtreeIfNeeded()
+        panel.orderFrontRegardless()
         model.showsShape = true
         DispatchQueue.main.async { [weak self] in
             guard let self, self.isOpen else { return }
@@ -135,7 +131,7 @@ final class NotchController {
         } completion: { [weak self] in
             guard let self, generation == self.layoutGeneration else { return }
             self.model.showsShape = false
-            self.setFrame(self.notchRect)
+            self.panel.orderOut(nil)
         }
     }
 
@@ -152,29 +148,32 @@ final class NotchController {
         }
     }
 
-    private func dragTargetChanged(_ targeted: Bool) {
-        isDragTargeted = targeted
-        log.notice("drag targeted=\(targeted)")
-        if targeted {
-            open(.drag)
-            return
+    /// Called while a file drag is in progress anywhere on screen.
+    func fileDragMoved(to point: CGPoint) {
+        if !isOpen {
+            let zone = CGRect(
+                x: notchRect.minX - 24,
+                y: notchRect.minY - 24,
+                width: notchRect.width + 48,
+                height: notchRect.height + 24
+            )
+            if NSMouseInRect(point, zone, false) { open(.drag) }
+        } else if openReason == .drag, !shelfRect.insetBy(dx: -20, dy: -20).contains(point) {
+            close("drag left")
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
-            guard let self, !self.isDragTargeted, self.openReason == .drag else { return }
-            if self.shelfRect.contains(NSEvent.mouseLocation) {
-                self.openReason = .hover
-            } else {
-                self.close("drag left")
-            }
+    }
+
+    /// Called when the mouse button is released after a file drag.
+    func fileDragEnded() {
+        guard openReason == .drag else { return }
+        if shelfRect.insetBy(dx: -20, dy: -20).contains(NSEvent.mouseLocation) {
+            openReason = .hover
+        } else {
+            close("drag ended")
         }
     }
 
     private var shelfRect: CGRect {
         NotchGeometry.topCenteredRect(in: screen.frame, size: model.openedSize)
-    }
-
-    private func setFrame(_ frame: CGRect) {
-        panel.setFrame(frame, display: true)
-        panel.orderFrontRegardless()
     }
 }

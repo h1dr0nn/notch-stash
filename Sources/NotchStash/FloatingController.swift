@@ -2,13 +2,19 @@ import AppKit
 import NotchStashCore
 import SwiftUI
 
+/// Whether files are being dragged over the floating shelf.
+@MainActor
+final class DropState: ObservableObject {
+    @Published var isTargeted = false
+}
+
 /// Rounded shelf used on screens without a notch.
 private struct FloatingRootView: View {
     @ObservedObject var store: ShelfStore
     let onClose: () -> Void
     let onPreview: (_ urls: [URL], _ index: Int) -> Void
 
-    @State private var dropTargeted = false
+    @ObservedObject var dropState: DropState
 
     var body: some View {
         ShelfContentView(store: store, onClose: onClose, onPreview: onPreview, movesWindow: true)
@@ -18,9 +24,11 @@ private struct FloatingRootView: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(dropTargeted ? Color.accentColor : Color.primary.opacity(0.12), lineWidth: dropTargeted ? 2 : 1)
+                    .strokeBorder(
+                        dropState.isTargeted ? Color.accentColor : Color.primary.opacity(0.12),
+                        lineWidth: dropState.isTargeted ? 2 : 1
+                    )
             )
-            .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { DropLoader.load($0, into: store) }
     }
 }
 
@@ -40,14 +48,19 @@ final class FloatingController {
             level: .floating,
             hasShadow: true
         )
+        let dropState = DropState()
         let root = FloatingRootView(
             store: store,
             onClose: { [weak self] in self?.hide() },
-            onPreview: { [weak panel] urls, index in panel?.showPreview(urls: urls, index: index) }
+            onPreview: { [weak panel] urls, index in panel?.showPreview(urls: urls, index: index) },
+            dropState: dropState
         )
         let hostingView = NSHostingView(rootView: root)
         hostingView.sizingOptions = []
-        panel.contentView = hostingView
+        let dropView = DropTargetView(content: hostingView)
+        dropView.onTargetChanged = { targeted in dropState.isTargeted = targeted }
+        dropView.onDrop = { urls in store.add(urls) }
+        panel.contentView = dropView
     }
 
     func show(at cursor: CGPoint) {

@@ -173,39 +173,3 @@ private struct FileTile: View {
         .help(item.url.path)
     }
 }
-
-/// Loads dropped file URLs into the store.
-@MainActor
-enum DropLoader {
-    static func load(_ providers: [NSItemProvider], into store: ShelfStore) -> Bool {
-        let fileProviders = providers.filter { $0.canLoadObject(ofClass: URL.self) }
-        guard !fileProviders.isEmpty else { return false }
-        let batch = DropBatch(count: fileProviders.count, store: store)
-        for (index, provider) in fileProviders.enumerated() {
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                Task { @MainActor in batch.finish(index, url) }
-            }
-        }
-        return true
-    }
-}
-
-/// Collects URLs from one drop and adds them to the store in their original order.
-@MainActor
-private final class DropBatch {
-    private var results: [URL?]
-    private var pending: Int
-    private let store: ShelfStore
-
-    init(count: Int, store: ShelfStore) {
-        results = Array(repeating: nil, count: count)
-        pending = count
-        self.store = store
-    }
-
-    func finish(_ index: Int, _ url: URL?) {
-        results[index] = url
-        pending -= 1
-        if pending == 0 { store.add(results.compactMap { $0 }) }
-    }
-}
