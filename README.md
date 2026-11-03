@@ -15,9 +15,9 @@ A tiny shelf for your MacBook notch. Drop files on it, switch windows, Spaces or
 
 ## Install
 
-1. Download `NotchStash-<version>.zip` from the [latest release](https://github.com/h1dr0nn/notch-stash/releases/latest) and unzip it.
-2. Move **Notch Stash.app** to your **Applications** folder.
-3. Open it. The app is not notarized, so macOS blocks the first launch: open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to Notch Stash.
+1. Download `NotchStash-<version>.dmg` from the [latest release](https://github.com/h1dr0nn/notch-stash/releases/latest) and open it.
+2. Drag **Notch Stash** onto the **Applications** shortcut in the window.
+3. Open Notch Stash from Applications. The app is not notarized, so macOS blocks the first launch: open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to Notch Stash.
 
 ## Turn on the ⌃⌃ shortcut
 
@@ -63,9 +63,11 @@ swift test
 open "build/Notch Stash.app"
 ```
 
+`./scripts/make-dmg.sh` packs the built app into a DMG installer.
+
 ## Releases
 
-Pushing a tag builds the app on GitHub Actions and attaches a zip to a GitHub release:
+Pushing a tag builds the app on GitHub Actions and attaches a DMG and a zip to a GitHub release:
 
 - `develop-v1.2.3` creates a draft release for testing.
 - `release-v1.2.3` publishes the release.

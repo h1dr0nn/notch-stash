@@ -31,7 +31,9 @@ jobs:
         run: ./scripts/build-app.sh
 
       - name: Package
-        run: ditto -c -k --keepParent "build/Notch Stash.app" "build/NotchStash-${VERSION}.zip"
+        run: |
+          ./scripts/make-dmg.sh
+          ditto -c -k --keepParent "build/Notch Stash.app" "build/NotchStash-${VERSION}.zip"
 
       - name: Release notes
         run: |
@@ -48,4 +50,4 @@ jobs:
         run: |
           FLAGS=(--title "Notch Stash ${VERSION}" --notes-file build/notes.md)
           if [ "$CHANNEL" = "develop" ]; then FLAGS+=(--draft --prerelease); else FLAGS+=(--latest); fi
-          gh release create "$GITHUB_REF_NAME" "build/NotchStash-${VERSION}.zip" "${FLAGS[@]}"
+          gh release create "$GITHUB_REF_NAME" "build/NotchStash-${VERSION}.dmg" "build/NotchStash-${VERSION}.zip" "${FLAGS[@]}"
