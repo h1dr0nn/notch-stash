@@ -95,7 +95,9 @@ final class NotchController {
             onClose: { [weak self] in self?.close() },
             onPreview: { [weak self] urls, index in self?.panel.showPreview(urls: urls, index: index) }
         )
-        panel.contentView = NSHostingView(rootView: root)
+        let hostingView = NSHostingView(rootView: root)
+        hostingView.sizingOptions = []
+        panel.contentView = hostingView
         model.onDragTargetChanged = { [weak self] targeted in self?.dragTargetChanged(targeted) }
         setFrame(notchRect)
     }

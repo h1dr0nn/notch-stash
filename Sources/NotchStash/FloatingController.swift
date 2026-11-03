@@ -45,7 +45,9 @@ final class FloatingController {
             onClose: { [weak self] in self?.hide() },
             onPreview: { [weak panel] urls, index in panel?.showPreview(urls: urls, index: index) }
         )
-        panel.contentView = NSHostingView(rootView: root)
+        let hostingView = NSHostingView(rootView: root)
+        hostingView.sizingOptions = []
+        panel.contentView = hostingView
     }
 
     func show(at cursor: CGPoint) {

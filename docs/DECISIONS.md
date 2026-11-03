@@ -26,3 +26,4 @@
 - **Key listener recreated when Input Monitoring changes.** A listen-only tap created without the permission is limited to the app's own keys for its whole life, even after the user grants access, so the app polls the permission every 2 s and rebuilds the tap when it flips.
 - **Tag-driven releases.** `develop-v*` tags produce draft pre-releases for testing, `release-v*` tags publish; the version comes from the tag and the notes from CHANGELOG.
 - **Builds are not notarized.** There is no Developer ID; the README walks users through Open Anyway.
+- **Hosting views never size their window (`sizingOptions = []`).** By default `NSHostingView` grows the window to the SwiftUI content's minimum size; the closed notch window became 580 pt wide from the notch's left edge, which moved the drop target off the notch and made the shelf slide in from the left.

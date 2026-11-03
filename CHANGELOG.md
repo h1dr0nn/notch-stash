@@ -9,6 +9,7 @@
 
 ### Fixed
 - Dragging files onto the notch opens the shelf again.
+- The notch shelf no longer slides in from the left; its window stays exactly over the notch while closed.
 - ⌃⌃ could work once and then stop: a key listener created before Input Monitoring was granted only sees keys typed into Notch Stash itself. It is now recreated as soon as the permission appears, and the menu shows the real shortcut state.
 
 ## 0.4.0 — 2026-11-03
