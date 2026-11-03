@@ -13,6 +13,7 @@
 - Dragging files onto the notch opens the shelf: file drags are detected anywhere on screen and the shelf drops down as the pointer nears the notch.
 - Nothing is left at the notch while the shelf is closed.
 - Dropping files works in both shelves.
+- Haptic feedback is a single tap while dragging files instead of a double one.
 - The notch shelf no longer slides in from the left; its window stays exactly over the notch while closed.
 - ⌃⌃ could work once and then stop: a key listener created before Input Monitoring was granted only sees keys typed into Notch Stash itself. It is now recreated as soon as the permission appears, and the menu shows the real shortcut state.
 

@@ -116,13 +116,13 @@ final class NotchController {
             self.log.notice("animate open, frame=\(String(describing: self.panel.frame), privacy: .public)")
             withAnimation(Self.animation) { self.model.isOpen = true }
         }
-        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        Self.playHaptic()
     }
 
     func close(_ why: String) {
         guard isOpen else { return }
         log.notice("close \(why, privacy: .public)")
-        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        Self.playHaptic()
         openReason = nil
         layoutGeneration += 1
         let generation = layoutGeneration
@@ -171,6 +171,12 @@ final class NotchController {
         } else {
             close("drag ended")
         }
+    }
+
+    /// `.levelChange` feels like two steps while the trackpad is held down for a drag, so use a single tap then.
+    private static func playHaptic() {
+        let pattern: NSHapticFeedbackManager.FeedbackPattern = NSEvent.pressedMouseButtons == 0 ? .levelChange : .alignment
+        NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
     }
 
     private var shelfRect: CGRect {
