@@ -116,13 +116,13 @@ final class NotchController {
             self.log.notice("animate open, frame=\(String(describing: self.panel.frame), privacy: .public)")
             withAnimation(Self.animation) { self.model.isOpen = true }
         }
-        if reason == .hover { Self.playHaptic() }
+        Self.playHaptic()
     }
 
     func close(_ why: String) {
         guard isOpen else { return }
         log.notice("close \(why, privacy: .public)")
-        if openReason == .hover { Self.playHaptic() }
+        Self.playHaptic()
         openReason = nil
         layoutGeneration += 1
         let generation = layoutGeneration
@@ -173,9 +173,10 @@ final class NotchController {
         }
     }
 
-    /// macOS already taps the trackpad when a dragged file reaches the notch, so only pointer hovers get one.
+    /// `.levelChange` feels like two steps while the trackpad is held down for a drag, so use a single tap then.
     private static func playHaptic() {
-        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        let pattern: NSHapticFeedbackManager.FeedbackPattern = NSEvent.pressedMouseButtons == 0 ? .levelChange : .alignment
+        NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
     }
 
     private var shelfRect: CGRect {
