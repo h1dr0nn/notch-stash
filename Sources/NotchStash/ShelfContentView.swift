@@ -33,6 +33,7 @@ struct ShelfContentView: View {
                 actions(compact: true)
             }
             .frame(height: notchSize.height)
+            .padding(.top, 6)
         } else {
             HStack(spacing: 10) {
                 title

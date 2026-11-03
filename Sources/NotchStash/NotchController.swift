@@ -80,7 +80,7 @@ final class NotchController {
         self.screen = screen
         self.notchRect = notchRect
         self.store = store
-        let openedSize = CGSize(width: 580, height: notchRect.height + 124)
+        let openedSize = CGSize(width: 580, height: notchRect.height + 130)
         model = NotchModel(notchSize: notchRect.size, openedSize: openedSize)
         let windowSize = CGSize(width: openedSize.width + Self.shadowMargin * 2, height: openedSize.height + Self.shadowMargin)
         openedFrame = NotchGeometry.topCenteredRect(in: screen.frame, size: windowSize)
