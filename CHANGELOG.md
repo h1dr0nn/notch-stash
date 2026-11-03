@@ -8,6 +8,7 @@
 - New app icon following the macOS icon grid.
 
 ### Fixed
+- Dragging files onto the notch opens the shelf again.
 - ⌃⌃ could work once and then stop: a key listener created before Input Monitoring was granted only sees keys typed into Notch Stash itself. It is now recreated as soon as the permission appears, and the menu shows the real shortcut state.
 
 ## 0.4.0 — 2026-11-03

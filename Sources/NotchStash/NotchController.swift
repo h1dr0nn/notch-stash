@@ -30,7 +30,7 @@ private struct NotchRootView: View {
         let open = model.isOpen
         let shape = UnevenRoundedRectangle(bottomLeadingRadius: 24, bottomTrailingRadius: 24)
         ZStack(alignment: .top) {
-            Color.black.opacity(0.001)
+            Color.black.opacity(0.02)
                 .frame(width: model.notchSize.width, height: model.notchSize.height)
             ZStack(alignment: .top) {
                 shape.fill(Color.black)

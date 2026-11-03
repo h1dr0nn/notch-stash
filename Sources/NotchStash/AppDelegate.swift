@@ -79,7 +79,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.activate()
         if alert.runModal() == .alertFirstButtonReturn {
             HotkeyMonitor.openPrivacySettings()
-            NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
         }
     }
 
