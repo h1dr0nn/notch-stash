@@ -6,8 +6,19 @@ import Combine
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let settings = AppSettings.shared
     private let coordinator = ShelfCoordinator()
-    private lazy var hotkey = HotkeyMonitor { [weak self] in self?.coordinator.toggle() }
-    private lazy var settingsWindow = SettingsWindowController { [weak self] in self?.hotkey.isActive ?? false }
+    private lazy var hotkey = HotkeyMonitor { [weak self] in
+        guard self?.settings.shortcutKind == .doubleTap else { return }
+        self?.coordinator.toggle()
+    }
+    private lazy var comboHotKey = ComboHotKey { [weak self] in self?.coordinator.toggle() }
+    private lazy var settingsWindow = SettingsWindowController(
+        isShortcutActive: { [weak self] in self?.hotkey.isActive ?? false },
+        onRecordingChange: { [weak self] recording in
+            self?.isRecordingShortcut = recording
+            self?.applyShortcut()
+        }
+    )
+    private var isRecordingShortcut = false
     private var statusItem: NSStatusItem?
     private var cancellables: Set<AnyCancellable> = []
     private var launchedAtLogin = false
@@ -19,11 +30,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         coordinator.start()
-        hotkey.start()
         setUpStatusItem()
+        setUpMainMenu()
 
         settings.$hotkeyModifier
             .sink { [weak self] modifier in self?.hotkey.modifier = modifier }
+            .store(in: &cancellables)
+        settings.$shortcutKind.combineLatest(settings.$keyCombo)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.applyShortcut() }
             .store(in: &cancellables)
         settings.$showMenuBarIcon
             .sink { [weak self] visible in self?.statusItem?.isVisible = visible }
@@ -37,6 +52,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         settingsWindow.show()
         return false
+    }
+
+    /// Double-tap needs the Input Monitoring listener; a key combination is registered with the system instead.
+    private func applyShortcut() {
+        switch settings.shortcutKind {
+        case .doubleTap:
+            comboHotKey.unregister()
+            hotkey.start()
+        case .combination:
+            comboHotKey.register(isRecordingShortcut ? nil : settings.keyCombo)
+        }
+    }
+
+    private var isShortcutReady: Bool {
+        switch settings.shortcutKind {
+        case .doubleTap: hotkey.isActive
+        case .combination: settings.keyCombo != nil
+        }
+    }
+
+    /// Shown while the settings window puts the app in the Dock.
+    private func setUpMainMenu() {
+        let appMenu = NSMenu()
+        let about = #selector(NSApplication.orderFrontStandardAboutPanel(_:))
+        appMenu.addItem(withTitle: "About Notch Stash", action: about, keyEquivalent: "")
+        appMenu.addItem(.separator())
+        appMenu.addItem(menuItem("Settings…", #selector(openSettings), key: ","))
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Hide Notch Stash", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(menuItem("Quit Notch Stash", #selector(quit), key: "q"))
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let mainMenu = NSMenu()
+        for submenu in [appMenu, windowMenu] {
+            let item = NSMenuItem()
+            item.submenu = submenu
+            mainMenu.addItem(item)
+        }
+        NSApp.mainMenu = mainMenu
     }
 
     private func setUpStatusItem() {
@@ -68,13 +122,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         if settings.floatingEnabled {
             menu.addItem(.separator())
-            if hotkey.isActive {
-                let symbol = settings.hotkeyModifier.symbol
-                let hint = NSMenuItem(title: "Double-tap \(symbol) to show or hide the shelf", action: nil, keyEquivalent: "")
+            if isShortcutReady, let shortcut = settings.shortcutDescription {
+                let verb = settings.shortcutKind == .doubleTap ? "" : "Press "
+                let text = verb.isEmpty ? shortcut.prefix(1).uppercased() + shortcut.dropFirst() : verb + shortcut
+                let hint = NSMenuItem(title: "\(text) to show or hide the shelf", action: nil, keyEquivalent: "")
                 hint.isEnabled = false
                 menu.addItem(hint)
             } else {
-                menu.addItem(menuItem("Enable Shortcut…", #selector(openSettings)))
+                menu.addItem(menuItem("Set Up Shortcut…", #selector(openSettings)))
             }
         }
         menu.addItem(.separator())
@@ -85,7 +140,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func menuItem(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.target = self
+        Self.hideAutomaticImage(item)
         return item
+    }
+
+    /// macOS 27 adds symbols to items like Settings…; hide them so every item looks the same.
+    /// Set through the runtime so the app still builds with older SDKs.
+    private static func hideAutomaticImage(_ item: NSMenuItem) {
+        if item.responds(to: NSSelectorFromString("setPreferredImageVisibility:")) {
+            item.setValue(2, forKey: "preferredImageVisibility")
+        }
     }
 
     @objc private func toggleShelf() {

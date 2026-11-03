@@ -29,6 +29,7 @@ final class HotkeyMonitor {
     static var hasPermission: Bool { CGPreflightListenEventAccess() }
 
     func start() {
+        guard watchTimer == nil else { return }
         if !Self.hasPermission {
             log.notice("Input Monitoring not granted, requesting")
             CGRequestListenEventAccess()

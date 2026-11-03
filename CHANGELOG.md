@@ -7,6 +7,8 @@
 - New app icon following the macOS icon grid.
 - Settings window, shown when you open the app: turn the notch shelf, hover opening and the floating shelf on or off, pick the double-tap key (⌃, ⌥, ⌘ or ⇧), hide the menu bar icon, open at login, and check the Input Monitoring status.
 - Light haptic feedback when the notch shelf closes.
+- Shortcut can be a regular key combination (for example ⌃⌥Space) recorded in Settings; it needs no Input Monitoring permission.
+- Notch Stash shows in the Dock while Settings is open.
 
 ### Fixed
 - Dragging files onto the notch opens the shelf: file drags are detected anywhere on screen and the shelf drops down as the pointer nears the notch.

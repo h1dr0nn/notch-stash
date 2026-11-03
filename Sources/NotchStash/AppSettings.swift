@@ -3,6 +3,20 @@ import Combine
 import OSLog
 import ServiceManagement
 
+/// How the floating shelf shortcut is triggered.
+enum ShortcutKind: String, CaseIterable, Identifiable {
+    case doubleTap, combination
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .doubleTap: "Double-Tap a Modifier"
+        case .combination: "Key Combination"
+        }
+    }
+}
+
 /// Modifier key whose double tap toggles the floating shelf.
 enum HotkeyModifier: String, CaseIterable, Identifiable {
     case control, option, command, shift
@@ -45,7 +59,11 @@ final class AppSettings: ObservableObject {
     @Published var notchEnabled: Bool { didSet { save(notchEnabled, Key.notchEnabled) } }
     @Published var openNotchOnHover: Bool { didSet { save(openNotchOnHover, Key.openNotchOnHover) } }
     @Published var floatingEnabled: Bool { didSet { save(floatingEnabled, Key.floatingEnabled) } }
+    @Published var shortcutKind: ShortcutKind { didSet { save(shortcutKind.rawValue, Key.shortcutKind) } }
     @Published var hotkeyModifier: HotkeyModifier { didSet { save(hotkeyModifier.rawValue, Key.hotkeyModifier) } }
+    @Published var keyCombo: KeyCombo? {
+        didSet { defaults.set(keyCombo.flatMap { try? JSONEncoder().encode($0) }, forKey: Key.keyCombo) }
+    }
     @Published var showMenuBarIcon: Bool { didSet { save(showMenuBarIcon, Key.showMenuBarIcon) } }
     @Published private(set) var openAtLogin: Bool
 
@@ -54,6 +72,8 @@ final class AppSettings: ObservableObject {
         static let openNotchOnHover = "openNotchOnHover"
         static let floatingEnabled = "floatingEnabled"
         static let hotkeyModifier = "hotkeyModifier"
+        static let shortcutKind = "shortcutKind"
+        static let keyCombo = "keyCombo"
         static let showMenuBarIcon = "showMenuBarIcon"
     }
 
@@ -66,14 +86,25 @@ final class AppSettings: ObservableObject {
             Key.openNotchOnHover: true,
             Key.floatingEnabled: true,
             Key.hotkeyModifier: HotkeyModifier.control.rawValue,
+            Key.shortcutKind: ShortcutKind.doubleTap.rawValue,
             Key.showMenuBarIcon: true
         ])
         notchEnabled = defaults.bool(forKey: Key.notchEnabled)
         openNotchOnHover = defaults.bool(forKey: Key.openNotchOnHover)
         floatingEnabled = defaults.bool(forKey: Key.floatingEnabled)
         hotkeyModifier = HotkeyModifier(rawValue: defaults.string(forKey: Key.hotkeyModifier) ?? "") ?? .control
+        shortcutKind = ShortcutKind(rawValue: defaults.string(forKey: Key.shortcutKind) ?? "") ?? .doubleTap
+        keyCombo = defaults.data(forKey: Key.keyCombo).flatMap { try? JSONDecoder().decode(KeyCombo.self, from: $0) }
         showMenuBarIcon = defaults.bool(forKey: Key.showMenuBarIcon)
         openAtLogin = SMAppService.mainApp.status == .enabled
+    }
+
+    /// Human-readable shortcut, nil when a key combination is selected but not recorded yet.
+    var shortcutDescription: String? {
+        switch shortcutKind {
+        case .doubleTap: "double-tap \(hotkeyModifier.symbol)"
+        case .combination: keyCombo?.display
+        }
     }
 
     func setOpenAtLogin(_ enabled: Bool) {

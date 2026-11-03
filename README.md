@@ -19,9 +19,9 @@ A tiny shelf for your MacBook notch. Drop files on it, switch windows, Spaces or
 2. Drag **Notch Stash** onto the **Applications** shortcut in the window.
 3. Open Notch Stash from Applications. The app is not notarized, so macOS blocks the first launch: open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to Notch Stash.
 
-## Turn on the ⌃⌃ shortcut
+## Turn on the double-tap shortcut
 
-The double-tap shortcut needs **Input Monitoring**. Notch Stash only listens for modifier keys to spot the double tap; it never records or sends keystrokes anywhere.
+By default the floating shelf opens with a double tap of ⌃. A key combination picked in Settings needs no permission; the double-tap shortcut needs **Input Monitoring**. Notch Stash only listens for modifier keys to spot the double tap; it never records or sends keystrokes anywhere.
 
 1. Open **System Settings → Privacy & Security → Input Monitoring**.
 2. If an older **Notch Stash** entry is listed, select it and click **−**.
@@ -34,7 +34,7 @@ The shortcut starts working within a few seconds, no restart needed. Settings sh
 Open **Notch Stash** from Applications (or choose **Settings…** in the menu bar item) to:
 
 - turn the notch shelf, opening on hover, or the floating shelf on and off
-- pick the double-tap key: ⌃ Control, ⌥ Option, ⌘ Command or ⇧ Shift
+- choose the shortcut: double-tap ⌃ Control, ⌥ Option, ⌘ Command or ⇧ Shift, or record a key combination such as ⌃⌥Space
 - hide the menu bar icon (open the app again to get back to Settings)
 - open Notch Stash at login
 - check whether the shortcut has Input Monitoring access
@@ -44,7 +44,7 @@ Open **Notch Stash** from Applications (or choose **Settings…** in the menu ba
 | Action | How |
 | --- | --- |
 | Open the notch shelf | Move the pointer onto the notch, or drag files onto it |
-| Show or hide the floating shelf | Double-tap ⌃ (or the key picked in Settings) |
+| Show or hide the floating shelf | Double-tap ⌃, or the shortcut picked in Settings |
 | Move the floating shelf | Drag its title bar |
 | Take files out | Drag a file, or drag **Drag All** |
 | Keep a file after dropping it | Hold ⌥ while dropping |

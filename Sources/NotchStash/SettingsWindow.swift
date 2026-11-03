@@ -5,6 +5,7 @@ import SwiftUI
 private struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     let isShortcutActive: () -> Bool
+    let onRecordingChange: (Bool) -> Void
 
     var body: some View {
         Form {
@@ -25,32 +26,49 @@ private struct SettingsView: View {
             }
 
             Section("Shortcut") {
-                Picker(selection: $settings.hotkeyModifier) {
-                    ForEach(HotkeyModifier.allCases) { modifier in
-                        Text("\(modifier.symbol) \(modifier.title)").tag(modifier)
+                Picker(selection: $settings.shortcutKind) {
+                    ForEach(ShortcutKind.allCases) { kind in
+                        Text(kind.title).tag(kind)
                     }
                 } label: {
-                    Text("Double-Tap")
-                    Text("Tap the key twice quickly, without other keys.")
+                    Text("Shortcut Type")
+                    Text("Shows or hides the floating shelf.")
                 }
-                .disabled(!settings.floatingEnabled)
-                TimelineView(.periodic(from: .now, by: 2)) { _ in
-                    let active = isShortcutActive()
-                    LabeledContent {
-                        if active {
-                            Label("Allowed", systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                        } else {
-                            Button("Open Privacy Settings") { HotkeyMonitor.openPrivacySettings() }
+                if settings.shortcutKind == .doubleTap {
+                    Picker(selection: $settings.hotkeyModifier) {
+                        ForEach(HotkeyModifier.allCases) { modifier in
+                            Text("\(modifier.symbol) \(modifier.title)").tag(modifier)
                         }
                     } label: {
-                        Text("Input Monitoring")
-                        Text(active
-                            ? "The shortcut works in every app."
-                            : "Needed for the shortcut. Switch on Notch Stash in Input Monitoring.")
+                        Text("Double-Tap")
+                        Text("Tap the key twice quickly, without other keys.")
+                    }
+                    TimelineView(.periodic(from: .now, by: 2)) { _ in
+                        let active = isShortcutActive()
+                        LabeledContent {
+                            if active {
+                                Label("Allowed", systemImage: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                            } else {
+                                Button("Open Privacy Settings") { HotkeyMonitor.openPrivacySettings() }
+                            }
+                        } label: {
+                            Text("Input Monitoring")
+                            Text(active
+                                ? "The shortcut works in every app."
+                                : "Needed for double-tap. Switch on Notch Stash in Input Monitoring.")
+                        }
+                    }
+                } else {
+                    LabeledContent {
+                        ShortcutRecorder(combo: $settings.keyCombo, onRecordingChange: onRecordingChange)
+                    } label: {
+                        Text("Key Combination")
+                        Text("Click, then press keys with ⌘, ⌥ or ⌃. Needs no extra permission.")
                     }
                 }
             }
+            .disabled(!settings.floatingEnabled)
 
             Section("General") {
                 Toggle(isOn: $settings.showMenuBarIcon) {
@@ -72,26 +90,94 @@ private struct SettingsView: View {
     }
 }
 
+/// Button that records the next key combination pressed while it is active.
+private struct ShortcutRecorder: View {
+    @Binding var combo: KeyCombo?
+    let onRecordingChange: (Bool) -> Void
+
+    @State private var isRecording = false
+    @State private var monitor: Any?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button(isRecording ? "Press Keys…" : (combo?.display ?? "Record Shortcut")) {
+                isRecording ? stop() : start()
+            }
+            .monospacedDigit()
+            if combo != nil, !isRecording {
+                Button {
+                    combo = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear")
+            }
+        }
+        .onDisappear { stop() }
+    }
+
+    private func start() {
+        isRecording = true
+        onRecordingChange(true)
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 {
+                stop()
+            } else if let recorded = KeyCombo(event: event) {
+                combo = recorded
+                stop()
+            } else {
+                NSSound.beep()
+            }
+            return nil
+        }
+    }
+
+    private func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        if isRecording {
+            isRecording = false
+            onRecordingChange(false)
+        }
+    }
+}
+
 /// Owns the settings window.
 @MainActor
 final class SettingsWindowController {
     private var window: NSWindow?
+    private var closeObserver: Any?
     private let isShortcutActive: () -> Bool
+    private let onRecordingChange: (Bool) -> Void
 
-    init(isShortcutActive: @escaping () -> Bool) {
+    init(isShortcutActive: @escaping () -> Bool, onRecordingChange: @escaping (Bool) -> Void) {
         self.isShortcutActive = isShortcutActive
+        self.onRecordingChange = onRecordingChange
     }
 
     func show() {
         if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView(settings: .shared, isShortcutActive: isShortcutActive))
+            let hosting = NSHostingController(rootView: SettingsView(
+                settings: .shared,
+                isShortcutActive: isShortcutActive,
+                onRecordingChange: onRecordingChange
+            ))
             let window = NSWindow(contentViewController: hosting)
             window.title = "Notch Stash Settings"
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
             window.center()
             self.window = window
+            closeObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { _ in
+                MainActor.assumeIsolated { _ = NSApp.setActivationPolicy(.accessory) }
+            }
         }
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
     }

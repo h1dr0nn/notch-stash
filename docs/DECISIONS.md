@@ -28,3 +28,6 @@
 - **Hosting views never size their window (`sizingOptions = []`).** By default `NSHostingView` grows the window to the SwiftUI content's minimum size; the closed notch window became 580 pt wide from the notch's left edge, which moved the drop target off the notch and made the shelf slide in from the left.
 - **Drops handled by an AppKit view.** SwiftUI `onDrop` never fired inside the non-activating panels; a plain `NSView` registered for file URLs wraps the SwiftUI content in both shelves.
 - **Haptic on every open and close.** A single light tap while the mouse button is held (dragging), `.levelChange` otherwise, which feels doubled under a pressed trackpad.
+- **Key combinations through Carbon `RegisterEventHotKey`.** Still the only public API for global key combinations, and it needs no privacy permission, unlike the double-tap listener.
+- **Dock icon only while Settings is open.** The app switches to a regular app when the window opens and back to a menu bar app when it closes.
+- **Automatic menu symbols hidden.** macOS 27 adds a gear to Settings…; `preferredImageVisibility` is set through the runtime so builds on older SDKs keep working.
