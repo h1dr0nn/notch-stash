@@ -6,6 +6,8 @@ import NotchStashCore
 @MainActor
 final class ShelfCoordinator {
     let store = ShelfStore()
+    private let settings = AppSettings.shared
+    private var settingsCancellables: Set<AnyCancellable> = []
     private var notchControllers: [NotchController] = []
     private var notchLayout: [CGRect] = []
     private var screenObserver: Any?
@@ -17,10 +19,12 @@ final class ShelfCoordinator {
     var isFloatingVisible: Bool { floating.isVisible }
 
     func start() {
-        floating.onVisibilityChanged = { [weak self] visible in
-            self?.notchControllers.forEach { $0.isEnabled = !visible }
-        }
+        floating.onVisibilityChanged = { [weak self] _ in self?.applySettings() }
         rebuildNotchWindows()
+        settings.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.applySettings() }
+            .store(in: &settingsCancellables)
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -55,6 +59,7 @@ final class ShelfCoordinator {
     }
 
     func toggle() {
+        guard settings.floatingEnabled else { return }
         if floating.isVisible {
             floating.hide()
         } else {
@@ -67,7 +72,7 @@ final class ShelfCoordinator {
     }
 
     func closeAll() {
-        notchControllers.forEach { $0.close() }
+        notchControllers.forEach { $0.close("close all") }
         floating.hide()
     }
 
@@ -90,6 +95,15 @@ final class ShelfCoordinator {
         notchLayout = layout
         notchControllers.forEach { $0.tearDown() }
         notchControllers = notched.map { NotchController(screen: $0.0, notchRect: $0.1, store: store) }
-        notchControllers.forEach { $0.isEnabled = !floating.isVisible }
+        applySettings()
+    }
+
+    private func applySettings() {
+        if !settings.floatingEnabled { floating.hide() }
+        let notchEnabled = settings.notchEnabled && !floating.isVisible
+        notchControllers.forEach {
+            $0.isEnabled = notchEnabled
+            $0.opensOnHover = settings.openNotchOnHover
+        }
     }
 }

@@ -6,6 +6,8 @@
 - Release builds on GitHub Actions: `develop-v*` tags create a draft release, `release-v*` tags publish one.
 - A prompt on launch explains how to turn on Input Monitoring when the ⌃⌃ shortcut is not allowed yet.
 - New app icon following the macOS icon grid.
+- Settings window, shown when you open the app: turn the notch shelf, hover opening and the floating shelf on or off, pick the double-tap key (⌃, ⌥, ⌘ or ⇧), hide the menu bar icon, open at login, and check the Input Monitoring status.
+- Light haptic feedback when the notch shelf closes.
 
 ### Fixed
 - Dragging files onto the notch opens the shelf again.

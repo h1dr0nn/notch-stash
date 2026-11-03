@@ -27,14 +27,24 @@ The double-tap shortcut needs **Input Monitoring**. Notch Stash only listens for
 2. If an older **Notch Stash** entry is listed, select it and click **−**.
 3. Click **+**, choose **Notch Stash** in Applications and switch it on.
 
-The shortcut starts working within a few seconds, no restart needed. The menu bar item shows whether the shortcut is active.
+The shortcut starts working within a few seconds, no restart needed. Settings shows whether access is granted.
+
+## Settings
+
+Open **Notch Stash** from Applications (or choose **Settings…** in the menu bar item) to:
+
+- turn the notch shelf, opening on hover, or the floating shelf on and off
+- pick the double-tap key: ⌃ Control, ⌥ Option, ⌘ Command or ⇧ Shift
+- hide the menu bar icon (open the app again to get back to Settings)
+- open Notch Stash at login
+- check whether the shortcut has Input Monitoring access
 
 ## Use
 
 | Action | How |
 | --- | --- |
 | Open the notch shelf | Move the pointer onto the notch, or drag files onto it |
-| Show or hide the floating shelf | Double-tap ⌃ |
+| Show or hide the floating shelf | Double-tap ⌃ (or the key picked in Settings) |
 | Move the floating shelf | Drag its title bar |
 | Take files out | Drag a file, or drag **Drag All** |
 | Keep a file after dropping it | Hold ⌥ while dropping |

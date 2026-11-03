@@ -1,5 +1,6 @@
 import AppKit
 import NotchStashCore
+import OSLog
 import SwiftUI
 
 /// View state for the notch window.
@@ -30,8 +31,8 @@ private struct NotchRootView: View {
         let open = model.isOpen
         let shape = UnevenRoundedRectangle(bottomLeadingRadius: 24, bottomTrailingRadius: 24)
         ZStack(alignment: .top) {
-            Color.black.opacity(0.02)
-                .frame(width: model.notchSize.width, height: model.notchSize.height)
+            Color.black
+                .frame(width: max(model.notchSize.width - 8, 0), height: max(model.notchSize.height - 4, 0))
             ZStack(alignment: .top) {
                 shape.fill(Color.black)
                 ShelfContentView(store: store, onClose: onClose, onPreview: onPreview, notchSize: model.notchSize)
@@ -68,11 +69,13 @@ final class NotchController {
     private let panel: ShelfPanel
     private(set) var openReason: OpenReason?
     private var isDragTargeted = false
+    var opensOnHover = true
     var isEnabled = true {
-        didSet { if !isEnabled { close() } }
+        didSet { if !isEnabled { close("disabled") } }
     }
     private var openedFrame: CGRect
     private var layoutGeneration = 0
+    private let log = Logger(subsystem: "local.notch-stash", category: "notch")
 
     var isOpen: Bool { openReason != nil }
 
@@ -92,7 +95,7 @@ final class NotchController {
         let root = NotchRootView(
             model: model,
             store: store,
-            onClose: { [weak self] in self?.close() },
+            onClose: { [weak self] in self?.close("button") },
             onPreview: { [weak self] urls, index in self?.panel.showPreview(urls: urls, index: index) }
         )
         let hostingView = NSHostingView(rootView: root)
@@ -103,6 +106,7 @@ final class NotchController {
     }
 
     func open(_ reason: OpenReason) {
+        log.notice("open \(String(describing: reason), privacy: .public) enabled=\(self.isEnabled) isOpen=\(self.isOpen)")
         guard isEnabled, !isOpen else { return }
         openReason = reason
         layoutGeneration += 1
@@ -113,13 +117,16 @@ final class NotchController {
         model.showsShape = true
         DispatchQueue.main.async { [weak self] in
             guard let self, self.isOpen else { return }
+            self.log.notice("animate open, frame=\(String(describing: self.panel.frame), privacy: .public)")
             withAnimation(Self.animation) { self.model.isOpen = true }
         }
         NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
     }
 
-    func close() {
+    func close(_ why: String) {
         guard isOpen else { return }
+        log.notice("close \(why, privacy: .public)")
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
         openReason = nil
         layoutGeneration += 1
         let generation = layoutGeneration
@@ -139,14 +146,15 @@ final class NotchController {
 
     func mouseMoved(to point: CGPoint) {
         if !isOpen {
-            if NSMouseInRect(point, notchRect, false) { open(.hover) }
+            if opensOnHover, NSMouseInRect(point, notchRect, false) { open(.hover) }
         } else if !shelfRect.insetBy(dx: -20, dy: -20).contains(point) {
-            close()
+            close("mouse left")
         }
     }
 
     private func dragTargetChanged(_ targeted: Bool) {
         isDragTargeted = targeted
+        log.notice("drag targeted=\(targeted)")
         if targeted {
             open(.drag)
             return
@@ -156,7 +164,7 @@ final class NotchController {
             if self.shelfRect.contains(NSEvent.mouseLocation) {
                 self.openReason = .hover
             } else {
-                self.close()
+                self.close("drag left")
             }
         }
     }

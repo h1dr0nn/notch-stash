@@ -3,7 +3,7 @@ import XCTest
 
 final class DoubleTapDetectorTests: XCTestCase {
     private func ctrl(_ down: Bool, others: Bool = false, _ time: TimeInterval) -> DoubleTapDetector.Input {
-        .modifiers(controlDown: down, othersDown: others, time: time)
+        .modifiers(targetDown: down, othersDown: others, time: time)
     }
 
     func testDoubleTapTriggersOnSecondRelease() {

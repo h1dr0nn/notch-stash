@@ -2,7 +2,7 @@ import AppKit
 import NotchStashCore
 import OSLog
 
-/// Watches for a double tap of ⌃ through a listen-only event tap (needs Input Monitoring).
+/// Watches for a double tap of a modifier key through a listen-only event tap (needs Input Monitoring).
 @MainActor
 final class HotkeyMonitor {
     private let onTrigger: () -> Void
@@ -11,6 +11,9 @@ final class HotkeyMonitor {
     private var source: CFRunLoopSource?
     private var tapHasPermission = false
     private var watchTimer: Timer?
+    var modifier: HotkeyModifier = .control {
+        didSet { detector = DoubleTapDetector() }
+    }
     private let log = Logger(subsystem: "local.notch-stash", category: "hotkey")
 
     init(onTrigger: @escaping () -> Void) {
@@ -98,14 +101,15 @@ final class HotkeyMonitor {
         case .keyDown:
             _ = detector.handle(.keyDown(time: ProcessInfo.processInfo.systemUptime))
         case .flagsChanged:
-            let others: CGEventFlags = [.maskShift, .maskAlternate, .maskCommand, .maskSecondaryFn]
+            let modifiers: CGEventFlags = [.maskControl, .maskShift, .maskAlternate, .maskCommand, .maskSecondaryFn]
+            let others = modifiers.subtracting(modifier.flag)
             let input = DoubleTapDetector.Input.modifiers(
-                controlDown: flags.contains(.maskControl),
+                targetDown: flags.contains(modifier.flag),
                 othersDown: !flags.isDisjoint(with: others),
                 time: ProcessInfo.processInfo.systemUptime
             )
             if detector.handle(input) {
-                log.notice("Double control detected")
+                log.notice("Double tap detected")
                 onTrigger()
             }
         default:
