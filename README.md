@@ -20,9 +20,17 @@ Notch Stash speaks the [LocalSend](https://localsend.org) protocol, so it can sw
 
 Notch Stash checks GitHub once a day. When a new version is out, the menu bar item shows **Update to …**; choose it, or **Update and Relaunch** in Settings, to download, verify and install it. Turn off automatic checks in Settings.
 
+## Windows
+
+Notch Stash also runs on Windows 10 and 11 as a tray app. Windows has no notch, so the shelf floats next to the pointer: press **Ctrl+Alt+Space** (change it in Settings) or click the tray icon. Dragging files in and out, Send to Device and receiving files work the same way as on the Mac.
+
+Download `NotchStash-Setup-<version>.exe` from the [latest release](https://github.com/h1dr0nn/notch-stash/releases/latest) and run it; no administrator rights are needed. Windows may warn that the installer is from an unknown publisher: choose **More info → Run anyway**. Allow Notch Stash on private networks when the firewall asks, so nearby devices can reach it.
+
+Building from source: see [windows-app/README.md](windows-app/README.md).
+
 ## Requirements
 
-- macOS 14 Sonoma or later
+- macOS 14 Sonoma or later, or Windows 10/11 for the Windows version
 - A Mac with a notch for the notch shelf (the floating shelf works on any Mac)
 
 ## Install

@@ -3,6 +3,7 @@
 ## 0.6.0 — 2026-11-04
 
 ### Added
+- Windows version: tray icon, floating shelf on a global hotkey (Ctrl+Alt+Space by default), drag files in and out, Settings, Start with Windows, and the same LocalSend nearby sharing. Installer and portable zip on every release.
 - Nearby sharing with LocalSend: send shelf files to phones and computers running LocalSend on the same network, and receive files from them straight into the shelf.
 - Right-click a file on the shelf for Quick Look, Show in Finder, Send to Device… and Remove; Send All… sends the whole shelf.
 - Send to Device window that finds nearby devices and shows approval, progress and result for each.

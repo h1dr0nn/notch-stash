@@ -1,0 +1,36 @@
+name: notch_stash
+description: "Notch Stash for Windows: a temporary file shelf with nearby sharing over LocalSend."
+publish_to: 'none'
+
+# The release workflow overrides the version with --build-name from the git tag.
+version: 0.6.0+1
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  file_picker: 11.0.3
+  hotkey_manager: 0.3.0
+  launch_at_startup: 0.5.1
+  mime: 2.1.0
+  package_info_plus: 9.0.1
+  path: 1.9.1
+  path_provider: 2.1.6
+  screen_retriever: 0.3.1
+  shared_preferences: 2.5.6
+  super_drag_and_drop: 0.9.1
+  tray_manager: 0.8.2
+  url_launcher: 6.3.3
+  window_manager: 0.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/tray_icon.png
