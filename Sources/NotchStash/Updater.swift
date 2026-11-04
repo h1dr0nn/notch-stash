@@ -36,6 +36,7 @@ final class Updater: ObservableObject {
     }
 
     private static let latestReleaseURL = URL(string: "https://api.github.com/repos/h1dr0nn/notch-stash/releases/latest")
+    private static let latestReleasePage = URL(string: "https://github.com/h1dr0nn/notch-stash/releases/latest")
     private var timer: Timer?
     private let log = Logger(subsystem: "local.notch-stash", category: "update")
 
@@ -60,30 +61,48 @@ final class Updater: ObservableObject {
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-                state = .failed("GitHub did not answer. Try again later.")
-                return
+            let release: Release?
+            if (response as? HTTPURLResponse)?.statusCode == 200 {
+                release = try Self.release(from: JSONDecoder().decode(GitHubRelease.self, from: data))
+            } else {
+                // The API allows 60 calls an hour per address; shared office networks run out quickly.
+                release = try await Self.releaseFromLatestPage()
             }
-            let latest = try JSONDecoder().decode(GitHubRelease.self, from: data)
-            guard let version = AppVersion(latest.tagName),
-                  let current = AppVersion(currentVersion),
+            guard let release, let version = AppVersion(release.version), let current = AppVersion(currentVersion),
                   version > current else {
                 state = .upToDate
                 return
             }
-            let zipName = "NotchStash-\(version).zip"
-            guard let asset = latest.assets.first(where: { $0.name == zipName }),
-                  let zipURL = URL(string: asset.browserDownloadURL),
-                  let pageURL = URL(string: latest.htmlURL) else {
-                state = .failed("Version \(version) has no Mac download.")
-                return
-            }
-            let sha256 = asset.digest.flatMap { $0.hasPrefix("sha256:") ? String($0.dropFirst(7)) : nil }
-            state = .available(Release(version: version.description, zipURL: zipURL, sha256: sha256, pageURL: pageURL))
-            log.notice("Update available: \(version.description, privacy: .public)")
+            state = .available(release)
+            log.notice("Update available: \(release.version, privacy: .public)")
         } catch {
             state = .failed(error.localizedDescription)
         }
+    }
+
+    private static func release(from latest: GitHubRelease) throws -> Release? {
+        guard let version = AppVersion(latest.tagName) else { return nil }
+        let zipName = "NotchStash-\(version).zip"
+        guard let asset = latest.assets.first(where: { $0.name == zipName }),
+              let zipURL = URL(string: asset.browserDownloadURL),
+              let pageURL = URL(string: latest.htmlURL) else { return nil }
+        let sha256 = asset.digest.flatMap { $0.hasPrefix("sha256:") ? String($0.dropFirst(7)) : nil }
+        return Release(version: version.description, zipURL: zipURL, sha256: sha256, pageURL: pageURL)
+    }
+
+    /// Without the API: github.com/…/releases/latest redirects to the newest tag, and the zip
+    /// has a predictable download address. There is no published checksum this way.
+    private static func releaseFromLatestPage() async throws -> Release? {
+        guard let page = latestReleasePage else { return nil }
+        var request = URLRequest(url: page, timeoutInterval: 20)
+        request.httpMethod = "HEAD"
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let tagURL = response.url, tagURL.path.contains("/releases/tag/"),
+              let version = AppVersion(tagURL.lastPathComponent) else { return nil }
+        let tag = tagURL.lastPathComponent
+        guard let zipURL = URL(string: "https://github.com/h1dr0nn/notch-stash/releases/download/\(tag)/NotchStash-\(version).zip")
+        else { return nil }
+        return Release(version: version.description, zipURL: zipURL, sha256: nil, pageURL: tagURL)
     }
 
     /// Downloads, verifies and swaps in the new app, then relaunches it.

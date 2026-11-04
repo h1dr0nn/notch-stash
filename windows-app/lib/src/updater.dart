@@ -17,6 +17,7 @@ class Updater extends ChangeNotifier {
   Updater({required this.currentVersion, required this.isEnabled, required this.onInstallerStarted});
 
   static final Uri _latestRelease = Uri.parse('https://api.github.com/repos/h1dr0nn/notch-stash/releases/latest');
+  static final Uri _latestReleasePage = Uri.parse('https://github.com/h1dr0nn/notch-stash/releases/latest');
 
   final String currentVersion;
 
@@ -56,12 +57,15 @@ class Updater extends ChangeNotifier {
       request.headers.set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
       request.headers.set(HttpHeaders.userAgentHeader, 'NotchStash/$currentVersion');
       final response = await request.close();
-      if (response.statusCode != 200) {
+      ReleaseInfo? release;
+      if (response.statusCode == 200) {
+        final json = jsonDecode(await response.transform(utf8.decoder).join());
+        release = json is Map<String, dynamic> ? ReleaseInfo.fromGitHubJson(json) : null;
+      } else {
+        // The API allows 60 calls an hour per address; shared office networks run out quickly.
         await response.drain<void>();
-        return _fail('GitHub did not answer. Try again later.');
+        release = await _releaseFromLatestPage(client);
       }
-      final json = jsonDecode(await response.transform(utf8.decoder).join());
-      final release = json is Map<String, dynamic> ? ReleaseInfo.fromGitHubJson(json) : null;
       final current = AppVersion.tryParse(currentVersion);
       if (release == null || current == null || !(release.version > current)) {
         _release = null;
@@ -74,6 +78,16 @@ class Updater extends ChangeNotifier {
     } finally {
       client.close();
     }
+  }
+
+  Future<ReleaseInfo?> _releaseFromLatestPage(HttpClient client) async {
+    final request = await client.headUrl(_latestReleasePage);
+    request.followRedirects = false;
+    request.headers.set(HttpHeaders.userAgentHeader, 'NotchStash/$currentVersion');
+    final response = await request.close();
+    await response.drain<void>();
+    final location = response.headers.value(HttpHeaders.locationHeader);
+    return location == null ? null : ReleaseInfo.fromTagPage(Uri.parse(location));
   }
 
   /// Downloads the installer, verifies it, starts it silently and quits.

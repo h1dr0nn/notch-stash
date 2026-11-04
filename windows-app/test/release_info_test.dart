@@ -47,4 +47,21 @@ void main() {
     expect(ReleaseInfo.fromGitHubJson(_release(tag: 'nightly')), isNull);
     expect(ReleaseInfo.fromGitHubJson({'tag_name': 'release-v1.0.0'}), isNull);
   });
+
+  test('builds the installer address from the latest tag page', () {
+    final info = ReleaseInfo.fromTagPage(
+      Uri.parse('https://github.com/h1dr0nn/notch-stash/releases/tag/release-v0.6.2'),
+    )!;
+    expect(info.version.toString(), '0.6.2');
+    expect(
+      info.installerUrl.toString(),
+      'https://github.com/h1dr0nn/notch-stash/releases/download/release-v0.6.2/NotchStash-Setup-0.6.2.exe',
+    );
+    expect(info.sha256, isNull);
+  });
+
+  test('ignores pages that are not a release tag', () {
+    expect(ReleaseInfo.fromTagPage(Uri.parse('https://github.com/h1dr0nn/notch-stash/releases')), isNull);
+    expect(ReleaseInfo.fromTagPage(Uri.parse('https://github.com/h1dr0nn/notch-stash/releases/tag/nightly')), isNull);
+  });
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.3 — 2026-11-04
+
+### Fixed
+- Checking for updates works when GitHub's API limit for your network is used up (common on shared office networks): Notch Stash falls back to the public releases page.
+- The Mac updater removes its temporary download after installing.
+
 ## 0.6.2 — 2026-11-04
 
 ### Added
