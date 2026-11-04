@@ -1,8 +1,32 @@
 import AppKit
 import SwiftUI
 
-/// Preferences form.
+/// Settings tabs shown in the window toolbar.
+enum SettingsTab: CaseIterable {
+    case general, shortcut, sharing, updates
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .shortcut: "Shortcut"
+        case .sharing: "Sharing"
+        case .updates: "Updates"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: "gearshape"
+        case .shortcut: "keyboard"
+        case .sharing: "antenna.radiowaves.left.and.right"
+        case .updates: "arrow.triangle.2.circlepath"
+        }
+    }
+}
+
+/// Preferences form for one tab.
 private struct SettingsView: View {
+    let tab: SettingsTab
     @ObservedObject var settings: AppSettings
     let isShortcutActive: () -> Bool
     let onRecordingChange: (Bool) -> Void
@@ -11,129 +35,131 @@ private struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Shelves") {
-                Toggle(isOn: $settings.notchEnabled) {
-                    Text("Notch Shelf")
-                    Text("Drops down from the notch when you point at it or drag files onto it.")
-                }
-                Toggle(isOn: $settings.openNotchOnHover) {
-                    Text("Open on Hover")
-                    Text("When off, the notch shelf opens only when you drag files onto it.")
-                }
-                .disabled(!settings.notchEnabled)
-                Toggle(isOn: $settings.floatingEnabled) {
-                    Text("Floating Shelf")
-                    Text("Shows a shelf next to the pointer when you use the shortcut.")
-                }
-            }
-
-            Section("Shortcut") {
-                Picker(selection: $settings.shortcutKind) {
-                    ForEach(ShortcutKind.allCases) { kind in
-                        Text(kind.title).tag(kind)
+            switch tab {
+            case .general:
+                Section("Shelves") {
+                    Toggle(isOn: $settings.notchEnabled) {
+                        Text("Notch Shelf")
+                        Text("Drops down from the notch when you point at it or drag files onto it.")
                     }
-                } label: {
-                    Text("Shortcut Type")
-                    Text("Shows or hides the floating shelf.")
+                    Toggle(isOn: $settings.openNotchOnHover) {
+                        Text("Open on Hover")
+                        Text("When off, the notch shelf opens only when you drag files onto it.")
+                    }
+                    .disabled(!settings.notchEnabled)
+                    Toggle(isOn: $settings.floatingEnabled) {
+                        Text("Floating Shelf")
+                        Text("Shows a shelf next to the pointer when you use the shortcut.")
+                    }
                 }
-                if settings.shortcutKind == .doubleTap {
-                    Picker(selection: $settings.hotkeyModifier) {
-                        ForEach(HotkeyModifier.allCases) { modifier in
-                            Text("\(modifier.symbol) \(modifier.title)").tag(modifier)
+                Section("App") {
+                    Toggle(isOn: $settings.showMenuBarIcon) {
+                        Text("Show Menu Bar Icon")
+                        Text("When hidden, open Notch Stash again from Applications to come back here.")
+                    }
+                    Toggle(isOn: Binding(get: { settings.openAtLogin }, set: { settings.setOpenAtLogin($0) })) {
+                        Text("Open at Login")
+                    }
+                }
+            case .shortcut:
+                Section("Shortcut") {
+                    Picker(selection: $settings.shortcutKind) {
+                        ForEach(ShortcutKind.allCases) { kind in
+                            Text(kind.title).tag(kind)
                         }
                     } label: {
-                        Text("Double-Tap")
-                        Text("Tap the key twice quickly, without other keys.")
+                        Text("Shortcut Type")
+                        Text("Shows or hides the floating shelf.")
                     }
-                    TimelineView(.periodic(from: .now, by: 2)) { _ in
-                        let active = isShortcutActive()
-                        LabeledContent {
-                            if active {
-                                Label("Allowed", systemImage: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                            } else {
-                                Button("Open Privacy Settings") { HotkeyMonitor.openPrivacySettings() }
+                    if settings.shortcutKind == .doubleTap {
+                        Picker(selection: $settings.hotkeyModifier) {
+                            ForEach(HotkeyModifier.allCases) { modifier in
+                                Text("\(modifier.symbol) \(modifier.title)").tag(modifier)
                             }
                         } label: {
-                            Text("Input Monitoring")
-                            Text(active
-                                ? "The shortcut works in every app."
-                                : "Needed for double-tap. Switch on Notch Stash in Input Monitoring.")
+                            Text("Double-Tap")
+                            Text("Tap the key twice quickly, without other keys.")
+                        }
+                        TimelineView(.periodic(from: .now, by: 2)) { _ in
+                            let active = isShortcutActive()
+                            LabeledContent {
+                                if active {
+                                    Label("Allowed", systemImage: "checkmark.circle.fill")
+                                        .foregroundStyle(.green)
+                                } else {
+                                    Button("Open Privacy Settings") { HotkeyMonitor.openPrivacySettings() }
+                                }
+                            } label: {
+                                Text("Input Monitoring")
+                                Text(active
+                                    ? "The shortcut works in every app."
+                                    : "Needed for double-tap. Switch on Notch Stash in Input Monitoring.")
+                            }
+                        }
+                    } else {
+                        LabeledContent {
+                            ShortcutRecorder(combo: $settings.keyCombo, onRecordingChange: onRecordingChange)
+                        } label: {
+                            Text("Key Combination")
+                            Text("Click, then press keys with ⌘, ⌥ or ⌃. Needs no extra permission.")
                         }
                     }
-                } else {
-                    LabeledContent {
-                        ShortcutRecorder(combo: $settings.keyCombo, onRecordingChange: onRecordingChange)
-                    } label: {
-                        Text("Key Combination")
-                        Text("Click, then press keys with ⌘, ⌥ or ⌃. Needs no extra permission.")
-                    }
                 }
-            }
-            .disabled(!settings.floatingEnabled)
-
-            Section("Nearby Sharing") {
-                Toggle(isOn: $settings.nearbySharingEnabled) {
-                    Text("Nearby Sharing")
-                    Text("Send and receive files with devices running LocalSend on the same network.")
-                }
-                Group {
-                    Toggle(isOn: $settings.receiveFiles) {
-                        Text("Receive Files")
-                        Text("Other devices can send files to this Mac after you accept them.")
+                .disabled(!settings.floatingEnabled)
+            case .sharing:
+                Section("Nearby Sharing") {
+                    Toggle(isOn: $settings.nearbySharingEnabled) {
+                        Text("Nearby Sharing")
+                        Text("Send and receive files with devices running LocalSend on the same network.")
                     }
-                    LabeledContent {
-                        switch localNetwork.state {
-                        case .allowed:
-                            Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                        case .denied:
-                            Button("Open Privacy Settings") { LocalNetworkPermission.openPrivacySettings() }
-                        case .unknown:
-                            Text("Checking…").foregroundStyle(.secondary)
+                    Group {
+                        Toggle(isOn: $settings.receiveFiles) {
+                            Text("Receive Files")
+                            Text("Other devices can send files to this Mac after you accept them.")
                         }
-                    } label: {
-                        Text("Local Network")
-                        Text(localNetwork.state == .denied
-                            ? "Needed to find devices. Switch on Notch Stash in Local Network."
-                            : "Needed to find devices on your network.")
-                    }
-                    TextField("Device Name", text: $settings.deviceName)
-                    LabeledContent {
-                        HStack(spacing: 8) {
-                            Text((settings.saveFolderPath as NSString).abbreviatingWithTildeInPath)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .foregroundStyle(.secondary)
-                            Button("Choose…") { chooseSaveFolder() }
+                        LabeledContent {
+                            switch localNetwork.state {
+                            case .allowed:
+                                Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                            case .denied:
+                                Button("Open Privacy Settings") { LocalNetworkPermission.openPrivacySettings() }
+                            case .unknown:
+                                Text("Checking…").foregroundStyle(.secondary)
+                            }
+                        } label: {
+                            Text("Local Network")
+                            Text(localNetwork.state == .denied
+                                ? "Needed to find devices. Switch on Notch Stash in Local Network."
+                                : "Needed to find devices on your network.")
                         }
-                    } label: {
-                        Text("Save To")
-                        Text("Received files are saved here and added to the shelf.")
+                        TextField("Device Name", text: $settings.deviceName)
+                        LabeledContent {
+                            HStack(spacing: 8) {
+                                Text((settings.saveFolderPath as NSString).abbreviatingWithTildeInPath)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .foregroundStyle(.secondary)
+                                Button("Choose…") { chooseSaveFolder() }
+                            }
+                        } label: {
+                            Text("Save To")
+                            Text("Received files are saved here and added to the shelf.")
+                        }
                     }
+                    .disabled(!settings.nearbySharingEnabled)
                 }
-                .disabled(!settings.nearbySharingEnabled)
-            }
-
-            Section("General") {
-                Toggle(isOn: $settings.showMenuBarIcon) {
-                    Text("Show Menu Bar Icon")
-                    Text("When hidden, open Notch Stash again from Applications to come back here.")
-                }
-                Toggle(isOn: Binding(get: { settings.openAtLogin }, set: { settings.setOpenAtLogin($0) })) {
-                    Text("Open at Login")
-                }
-            }
-
-            Section("Updates") {
-                Toggle(isOn: $settings.checkForUpdates) {
-                    Text("Check for Updates Automatically")
-                    Text("Looks for a new version on GitHub once a day.")
-                }
-                LabeledContent {
-                    updateControl
-                } label: {
-                    Text("Version \(updater.currentVersion)")
-                    Text(updateStatus)
+            case .updates:
+                Section("Updates") {
+                    Toggle(isOn: $settings.checkForUpdates) {
+                        Text("Check for Updates Automatically")
+                        Text("Looks for a new version on GitHub once a day.")
+                    }
+                    LabeledContent {
+                        updateControl
+                    } label: {
+                        Text("Version \(updater.currentVersion)")
+                        Text(updateStatus)
+                    }
                 }
             }
         }
@@ -267,16 +293,26 @@ final class SettingsWindowController {
 
     func show() {
         if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView(
-                settings: .shared,
-                isShortcutActive: isShortcutActive,
-                onRecordingChange: onRecordingChange,
-                localNetwork: localNetwork,
-                updater: updater
-            ))
-            let window = NSWindow(contentViewController: hosting)
-            window.title = "Notch Stash Settings"
+            let tabs = NSTabViewController()
+            tabs.tabStyle = .toolbar
+            for tab in SettingsTab.allCases {
+                let hosting = NSHostingController(rootView: SettingsView(
+                    tab: tab,
+                    settings: .shared,
+                    isShortcutActive: isShortcutActive,
+                    onRecordingChange: onRecordingChange,
+                    localNetwork: localNetwork,
+                    updater: updater
+                ))
+                hosting.sizingOptions = .preferredContentSize
+                let item = NSTabViewItem(viewController: hosting)
+                item.label = tab.title
+                item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
+                tabs.addTabViewItem(item)
+            }
+            let window = NSWindow(contentViewController: tabs)
             window.styleMask = [.titled, .closable]
+            window.toolbarStyle = .preference
             window.isReleasedWhenClosed = false
             window.center()
             self.window = window

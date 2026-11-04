@@ -8,6 +8,7 @@
 - Send to Device window that finds nearby devices and shows approval, progress and result for each.
 - Incoming files prompt with Accept and Decline; accepted files are saved to a folder you choose (Downloads by default).
 - Settings: Nearby Sharing, Receive Files, Device Name, Save To, and the Local Network permission status with a shortcut to System Settings.
+- Settings split into General, Shortcut, Sharing and Updates tabs.
 - In-app updates: Notch Stash checks GitHub for a new version once a day (or on demand in Settings), shows it in the menu bar, and installs it with one click after verifying the download.
 
 ## 0.5.2 — 2026-11-04
