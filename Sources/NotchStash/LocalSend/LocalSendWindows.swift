@@ -307,6 +307,7 @@ final class IncomingWindowController: NSObject, NSWindowDelegate {
     private let service: LocalSendService
     private var window: NSWindow?
     private var cancellable: AnyCancellable?
+    private var pendingDismiss: DispatchWorkItem?
     private let presentInNotch: (LocalSendIncomingDisplay) -> Bool
     private let dismissInNotch: () -> Void
 
@@ -320,16 +321,28 @@ final class IncomingWindowController: NSObject, NSWindowDelegate {
         self.presentInNotch = presentInNotch
         self.dismissInNotch = dismissInNotch
         super.init()
-        // A short debounce bridges the gap between answering the prompt and the transfer starting.
         cancellable = service.$incoming.combineLatest(service.$receiving)
             .map { incoming, receiving in
                 incoming.map(LocalSendIncomingDisplay.prompt) ?? receiving.map(LocalSendIncomingDisplay.progress)
             }
             .removeDuplicates()
-            .debounce(for: .milliseconds(150), scheduler: DispatchQueue.main)
-            .sink { [weak self] display in
-                if let display { self?.show(display) } else { self?.dismiss() }
-            }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] display in self?.update(display) }
+    }
+
+    /// Changes show at once; only closing waits a moment, which bridges the gap between answering the
+    /// prompt and the transfer starting. (A debounce would hold back every progress update while bytes
+    /// keep arriving.)
+    private func update(_ display: LocalSendIncomingDisplay?) {
+        pendingDismiss?.cancel()
+        pendingDismiss = nil
+        if let display {
+            show(display)
+            return
+        }
+        let dismissal = DispatchWorkItem { [weak self] in self?.dismiss() }
+        pendingDismiss = dismissal
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: dismissal)
     }
 
     private func show(_ display: LocalSendIncomingDisplay) {
@@ -339,6 +352,10 @@ final class IncomingWindowController: NSObject, NSWindowDelegate {
         }
         let view = IncomingWindowView(display: display) { [weak self] accept in
             self?.service.decideIncoming(accept)
+        }
+        if let hosting = window?.contentViewController as? NSHostingController<IncomingWindowView>, window?.isVisible == true {
+            hosting.rootView = view
+            return
         }
         let window = window ?? NSWindow(contentViewController: NSHostingController(rootView: view))
         window.contentViewController = NSHostingController(rootView: view)

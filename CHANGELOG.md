@@ -7,6 +7,8 @@
 
 ### Fixed
 - Mac: progress bars in the notch shelf showed grey instead of the accent colour.
+- Mac: after accepting, the incoming card stayed on the prompt until the whole transfer had finished; it now switches to progress at once.
+- Mac: the first click on the notch shelf or the floating shelf reaches its buttons.
 - Windows: switching to the shelf from another app no longer flashes the standard window border and title bar. The earlier fix only covered part of it and could be bypassed by plugins.
 
 ## 0.6.5 — 2026-11-04

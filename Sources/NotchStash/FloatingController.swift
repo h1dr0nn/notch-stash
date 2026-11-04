@@ -55,7 +55,7 @@ final class FloatingController {
             onPreview: { [weak panel] urls, index in panel?.showPreview(urls: urls, index: index) },
             dropState: dropState
         )
-        let hostingView = NSHostingView(rootView: root)
+        let hostingView = FirstClickHostingView(rootView: root)
         hostingView.sizingOptions = []
         let dropView = DropTargetView(content: hostingView)
         dropView.onTargetChanged = { targeted in dropState.isTargeted = targeted }

@@ -117,7 +117,7 @@ final class NotchController {
             onClose: { [weak self] in self?.close("button") },
             onPreview: { [weak self] urls, index in self?.panel.showPreview(urls: urls, index: index) }
         )
-        let hostingView = NSHostingView(rootView: root)
+        let hostingView = FirstClickHostingView(rootView: root)
         hostingView.sizingOptions = []
         let dropView = DropTargetView(content: hostingView)
         dropView.onTargetChanged = { [weak self] targeted in self?.model.isDropTargeted = targeted }

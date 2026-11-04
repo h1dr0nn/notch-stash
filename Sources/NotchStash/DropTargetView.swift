@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// Window content view that accepts dropped files and hosts the SwiftUI shelf as its only subview.
 final class DropTargetView: NSView {
@@ -46,4 +47,10 @@ final class DropTargetView: NSView {
         let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
         return pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL] ?? []
     }
+}
+
+/// Hosting view for the shelf panels. They never become the key window, so without this the first click
+/// would only bring the panel forward and never reach a button.
+final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
