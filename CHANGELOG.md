@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.4 — 2026-11-04
+
+### Fixed
+- Adding a Mac by IP address on Windows failed: the address was asked over HTTPS first, the Mac never answered that, and the attempt gave up. Devices are now asked over HTTP first, a typed address is always tried both ways, and the Mac refuses HTTPS at once.
+
 ## 0.6.3 — 2026-11-04
 
 ### Fixed

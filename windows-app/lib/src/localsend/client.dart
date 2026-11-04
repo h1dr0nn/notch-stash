@@ -101,25 +101,27 @@ class LocalSendClient {
     ..badCertificateCallback = ((cert, host, port) => true)
     ..connectionTimeout = const Duration(milliseconds: 1200);
 
-  /// Asks [ip] directly whether it runs Notch Stash or LocalSend (HTTPS first, then HTTP).
-  /// Registering also tells that device about this one. Returns its info with the scheme that answered.
-  Future<DeviceInfo?> probe(String ip, DeviceInfo info) async {
-    for (final scheme in const ['https', 'http']) {
+  /// Asks [ip] directly whether it runs Notch Stash or LocalSend: HTTP first (Notch Stash), then HTTPS (the
+  /// LocalSend apps). Registering also tells that device about this one. A sweep gives up on a silent address
+  /// after the first try; [thorough] (an address the user typed) always tries both.
+  Future<DeviceInfo?> probe(String ip, DeviceInfo info, {bool thorough = false}) async {
+    for (final scheme in const ['http', 'https']) {
       try {
         final uri = Uri.parse('$scheme://$ip:${LocalSendDefaults.port}/api/localsend/v2/register');
         final request = await _probeHttp.postUrl(uri);
         _writeJson(request, info.toJson());
-        final response = await request.close().timeout(const Duration(seconds: 2));
+        final response = await request.close().timeout(const Duration(seconds: 3));
         if (response.statusCode != 200) {
           await response.drain<void>();
-          return null;
+          continue;
         }
         final peer = DeviceInfo.fromJson(jsonDecode(await response.transform(utf8.decoder).join()));
-        return peer?.copyWith(announce: null, port: LocalSendDefaults.port, protocol: scheme);
+        if (peer == null) continue;
+        return peer.copyWith(announce: null, port: LocalSendDefaults.port, protocol: scheme);
       } on SocketException {
-        return null;
+        if (!thorough) return null;
       } on TimeoutException {
-        return null;
+        if (!thorough) return null;
       } on Object {
         continue;
       }

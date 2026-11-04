@@ -135,6 +135,12 @@ private final class ConnectionHandler: @unchecked Sendable {
     private func receiveHead() {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [self] data, _, isComplete, error in
             if let data { buffer.append(data) }
+            // 0x16 starts a TLS handshake: this server only speaks HTTP, so refuse at once and let
+            // the client fall back instead of waiting for a request that never comes.
+            if buffer.first == 0x16 {
+                connection.cancel()
+                return
+            }
             if let (parsed, bodyStart) = HTTPRequestHead.parse(buffer) {
                 let leftover = buffer.subdata(in: bodyStart..<buffer.count)
                 buffer = Data()

@@ -171,7 +171,7 @@ class LocalSendService extends ChangeNotifier {
   Future<String?> addDevice(String address) async {
     final trimmed = address.trim();
     if (trimmed.isEmpty || !_isRunning) return null;
-    final peer = await _probe(trimmed);
+    final peer = await _probe(trimmed, thorough: true);
     if (peer == null) return null;
     await settings.addSavedDeviceAddress(trimmed);
     return peer.alias;
@@ -184,8 +184,8 @@ class LocalSendService extends ChangeNotifier {
     }
   }
 
-  Future<Peer?> _probe(String address) async {
-    final info = await _client.probe(address, ownInfo());
+  Future<Peer?> _probe(String address, {bool thorough = false}) async {
+    final info = await _client.probe(address, ownInfo(), thorough: thorough);
     if (info == null || info.fingerprint == settings.fingerprint) return null;
     return _upsert(info, address);
   }

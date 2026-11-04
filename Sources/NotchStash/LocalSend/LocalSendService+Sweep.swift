@@ -6,7 +6,7 @@ extension LocalSendService {
     /// Asks one address directly and remembers it when a device answers. Returns the device's name.
     func addDevice(address: String) async -> String? {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let found = await probe(trimmed) else { return nil }
+        guard !trimmed.isEmpty, let found = await probe(trimmed, thorough: true) else { return nil }
         if !settings.savedDeviceAddresses.contains(trimmed) {
             settings.savedDeviceAddresses.append(trimmed)
         }
@@ -20,9 +20,10 @@ extension LocalSendService {
         }
     }
 
-    private func probe(_ address: String) async -> LocalSendPeer? {
+    private func probe(_ address: String, thorough: Bool = false) async -> LocalSendPeer? {
         let info = ownInfo()
-        guard let (peer, scheme) = await client.probe(address, info: info), peer.fingerprint != info.fingerprint else {
+        guard let (peer, scheme) = await client.probe(address, info: info, thorough: thorough),
+              peer.fingerprint != info.fingerprint else {
             return nil
         }
         var resolved = peer

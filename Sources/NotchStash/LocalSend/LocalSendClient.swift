@@ -45,10 +45,11 @@ final class LocalSendClient: NSObject, URLSessionDelegate, @unchecked Sendable {
         return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
     }()
 
-    /// Asks `ip` directly whether it runs Notch Stash or LocalSend (HTTPS first, then HTTP).
-    /// Registering also tells that device about this one.
-    func probe(_ ip: String, info: LocalSendDeviceInfo) async -> (LocalSendDeviceInfo, scheme: String)? {
-        for scheme in ["https", "http"] {
+    /// Asks `ip` directly whether it runs Notch Stash or LocalSend: HTTP first (Notch Stash), then HTTPS (the
+    /// LocalSend apps). Registering also tells that device about this one. A sweep gives up on a silent address
+    /// after the first try; `thorough` (an address the user typed) always tries both.
+    func probe(_ ip: String, info: LocalSendDeviceInfo, thorough: Bool = false) async -> (LocalSendDeviceInfo, scheme: String)? {
+        for scheme in ["http", "https"] {
             guard let url = URL(string: "\(scheme)://\(ip):53317/api/localsend/v2/register") else { continue }
             var request = URLRequest(url: url, timeoutInterval: 1.5)
             request.httpMethod = "POST"
@@ -59,7 +60,7 @@ final class LocalSendClient: NSObject, URLSessionDelegate, @unchecked Sendable {
                 guard (response as? HTTPURLResponse)?.statusCode == 200,
                       let peer = try? JSONDecoder().decode(LocalSendDeviceInfo.self, from: data) else { return nil }
                 return (peer, scheme)
-            } catch let error as URLError where [.cannotConnectToHost, .timedOut, .cannotFindHost].contains(error.code) {
+            } catch let error as URLError where !thorough && [.cannotConnectToHost, .timedOut, .cannotFindHost].contains(error.code) {
                 return nil
             } catch {
                 continue
