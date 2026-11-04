@@ -5,6 +5,7 @@
 ### Fixed
 - Checking for updates works when GitHub's API limit for your network is used up (common on shared office networks): Notch Stash falls back to the public releases page.
 - The Mac updater removes its temporary download after installing.
+- Windows: right-clicking no longer flashes the standard window border.
 
 ## 0.6.2 — 2026-11-04
 

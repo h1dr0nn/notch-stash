@@ -60,6 +60,11 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;
+    case WM_NCACTIVATE:
+      // The window is frameless but keeps its frame styles; when it loses activation (for example
+      // when a context menu opens) Windows would repaint the standard border for a moment.
+      // lParam -1 keeps the activation change without repainting the non-client area.
+      return DefWindowProc(hwnd, message, wparam, -1);
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);
