@@ -3,7 +3,7 @@
 ## 0.5.2 — 2026-11-04
 
 ### Fixed
-- Switching Spaces (for example with a three-finger swipe) while the notch shelf was open left it behind on the old Space, and the notch stopped responding on the new one. The shelf now closes when the Space changes and opens again if the pointer is still on the notch.
+- Switching Spaces (for example with a three-finger swipe) while the notch shelf was open left it behind on the old Space, and the notch stopped responding on the new one. The shelf now folds away with its animation when the Space changes and opens again if the pointer is still on the notch.
 
 ## 0.5.1 — 2026-11-03
 
