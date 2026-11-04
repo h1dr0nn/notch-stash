@@ -2,7 +2,11 @@
 
 ## 0.6.6 — 2026-11-04
 
+### Changed
+- Mac: a file transfer you are receiving folds into a small island around the notch, with a progress ring, while the pointer is elsewhere; point at it to see the full card.
+
 ### Fixed
+- Mac: progress bars in the notch shelf showed grey instead of the accent colour.
 - Windows: switching to the shelf from another app no longer flashes the standard window border and title bar. The earlier fix only covered part of it and could be bypassed by plugins.
 
 ## 0.6.5 — 2026-11-04

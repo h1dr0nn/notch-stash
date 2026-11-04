@@ -96,6 +96,53 @@ struct IncomingCard: View {
     }
 }
 
+/// A running transfer folded around the notch: direction on the left, progress on the right.
+struct CompactTransferIsland: View {
+    let progress: LocalSendReceiveProgress
+    let notchSize: CGSize
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 15))
+                .foregroundStyle(Color.accentColor)
+                .frame(maxWidth: .infinity)
+            Color.clear.frame(width: notchSize.width)
+            trailing.frame(maxWidth: .infinity)
+        }
+        .frame(height: notchSize.height)
+    }
+
+    @ViewBuilder
+    private var trailing: some View {
+        switch progress.phase {
+        case .receiving:
+            HStack(spacing: 5) {
+                ZStack {
+                    Circle().stroke(Color.white.opacity(0.18), lineWidth: 2.5)
+                    Circle()
+                        .trim(from: 0, to: progress.fraction)
+                        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.linear(duration: 0.2), value: progress.fraction)
+                }
+                .frame(width: 14, height: 14)
+                Text("\(Int(progress.fraction * 100))%")
+                    .font(.system(size: 11, weight: .semibold))
+                    .monospacedDigit()
+            }
+        case .done:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 15))
+                .foregroundStyle(.green)
+        case .failed:
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 15))
+                .foregroundStyle(.orange)
+        }
+    }
+}
+
 /// Percentage, bar and status of a running transfer; a mark when it ends.
 struct ReceiveProgressColumn: View {
     let progress: LocalSendReceiveProgress

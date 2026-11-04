@@ -11,9 +11,13 @@ final class NotchModel: ObservableObject {
     @Published var showsShape = false
     @Published var isDropTargeted = false
     @Published var incoming: LocalSendIncomingDisplay?
+    /// A transfer in progress folds into a small island around the notch while the pointer is elsewhere.
+    @Published var isCompact = false
     var decideIncoming: (Bool) -> Void = { _ in }
     let notchSize: CGSize
     let openedSize: CGSize
+
+    var compactSize: CGSize { CGSize(width: notchSize.width + 2 * 62, height: notchSize.height) }
 
     init(notchSize: CGSize, openedSize: CGSize) {
         self.notchSize = notchSize
@@ -30,30 +34,43 @@ private struct NotchRootView: View {
 
     var body: some View {
         let open = model.isOpen
-        let shape = UnevenRoundedRectangle(bottomLeadingRadius: 24, bottomTrailingRadius: 24)
+        let compact = model.isCompact
+        let size = compact ? model.compactSize : model.openedSize
+        let radius: CGFloat = compact ? model.notchSize.height / 2 : 24
+        let shape = UnevenRoundedRectangle(bottomLeadingRadius: radius, bottomTrailingRadius: radius)
         ZStack(alignment: .top) {
             ZStack(alignment: .top) {
                 shape.fill(Color.black)
-                Group {
-                    if let display = model.incoming {
-                        IncomingCard(display: display, notchSize: model.notchSize, decide: model.decideIncoming)
-                    } else {
-                        ShelfContentView(store: store, onClose: onClose, onPreview: onPreview, notchSize: model.notchSize)
+                if compact, case let .progress(progress) = model.incoming {
+                    CompactTransferIsland(progress: progress, notchSize: model.notchSize)
+                        .transition(.opacity)
+                } else {
+                    Group {
+                        if let display = model.incoming {
+                            IncomingCard(display: display, notchSize: model.notchSize, decide: model.decideIncoming)
+                        } else {
+                            ShelfContentView(store: store, onClose: onClose, onPreview: onPreview, notchSize: model.notchSize)
+                        }
                     }
+                        .padding([.horizontal, .bottom], 16)
+                        .opacity(open ? 1 : 0)
+                        .animation(open ? .easeOut(duration: 0.18).delay(0.1) : .easeIn(duration: 0.08), value: open)
+                        .allowsHitTesting(open)
+                        .frame(width: model.openedSize.width, height: model.openedSize.height, alignment: .top)
+                        .transition(.opacity)
                 }
-                    .padding([.horizontal, .bottom], 16)
-                    .opacity(open ? 1 : 0)
-                    .animation(open ? .easeOut(duration: 0.18).delay(0.1) : .easeIn(duration: 0.08), value: open)
-                    .allowsHitTesting(open)
             }
-            .frame(width: model.openedSize.width, height: model.openedSize.height)
+            .frame(width: size.width, height: size.height, alignment: .top)
             .clipShape(shape)
+            .animation(NotchController.animation, value: compact)
             .shadow(color: .black.opacity(0.45), radius: 12, y: 4)
             .scaleEffect(open ? 1 : 0.001, anchor: .top)
             .opacity(model.showsShape ? 1 : 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)
+        // The shelf never becomes the key window; keep progress bars and rings in their active colour.
+        .environment(\.controlActiveState, .key)
     }
 }
 
@@ -163,9 +180,25 @@ final class NotchController {
     func mouseMoved(to point: CGPoint) {
         if !isOpen {
             if opensOnHover, NSMouseInRect(point, notchRect, false) { open(.hover) }
-        } else if openReason != .incoming, !shelfRect.insetBy(dx: -20, dy: -20).contains(point) {
+        } else if openReason == .incoming {
+            updateCompact(pointer: point)
+        } else if !shelfRect.insetBy(dx: -20, dy: -20).contains(point) {
             close("mouse left")
         }
+    }
+
+    /// Folds a running transfer into the island when the pointer is away, and unfolds it on hover.
+    private func updateCompact(pointer: CGPoint) {
+        guard case .progress = model.incoming else {
+            if model.isCompact { model.isCompact = false }
+            return
+        }
+        let compactRect = NotchGeometry.topCenteredRect(in: screen.frame, size: model.compactSize)
+        let hovering = model.isCompact
+            ? compactRect.insetBy(dx: -8, dy: -8).contains(pointer)
+            : shelfRect.insetBy(dx: -20, dy: -20).contains(pointer)
+        guard model.isCompact == hovering else { return }
+        withAnimation(Self.animation) { model.isCompact = !hovering }
     }
 
     /// Shows an incoming-files prompt, then its progress, in the shelf; it stays open until the transfer ends.
@@ -177,11 +210,13 @@ final class NotchController {
         } else {
             open(.incoming, force: true)
         }
+        updateCompact(pointer: NSEvent.mouseLocation)
     }
 
     func dismissIncoming() {
         guard model.incoming != nil else { return }
         model.incoming = nil
+        model.isCompact = false
         guard openReason == .incoming else { return }
         if shelfRect.insetBy(dx: -20, dy: -20).contains(NSEvent.mouseLocation) {
             openReason = .hover
