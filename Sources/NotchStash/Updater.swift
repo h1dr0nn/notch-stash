@@ -106,7 +106,7 @@ final class Updater: ObservableObject {
             guard Bundle(url: newApp)?.bundleIdentifier == Bundle.main.bundleIdentifier else {
                 throw UpdateError("The download is not Notch Stash.")
             }
-            try relaunch(replacing: Bundle.main.bundleURL, with: newApp)
+            try relaunch(replacing: Bundle.main.bundleURL, with: newApp, cleaning: workDirectory)
         } catch let error as UpdateError {
             state = .failed(error.message)
         } catch {
@@ -136,7 +136,7 @@ final class Updater: ObservableObject {
     }
 
     /// A detached shell waits for this process to quit, swaps the bundles and opens the new one.
-    private func relaunch(replacing current: URL, with newApp: URL) throws {
+    private func relaunch(replacing current: URL, with newApp: URL, cleaning workDirectory: URL) throws {
         let folder = current.deletingLastPathComponent()
         guard FileManager.default.isWritableFile(atPath: folder.path) else {
             throw UpdateError("Notch Stash cannot write to \(folder.path). Download the update from GitHub instead.")
@@ -144,10 +144,11 @@ final class Updater: ObservableObject {
         let script = """
         while kill -0 \(ProcessInfo.processInfo.processIdentifier) 2>/dev/null; do sleep 0.2; done
         rm -rf "$1" && mv "$2" "$1" && open "$1"
+        rm -rf "$3"
         """
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", script, "sh", current.path, newApp.path]
+        process.arguments = ["-c", script, "sh", current.path, newApp.path, workDirectory.path]
         try process.run()
         NSApp.terminate(nil)
     }
