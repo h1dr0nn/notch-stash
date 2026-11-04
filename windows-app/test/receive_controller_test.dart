@@ -21,12 +21,12 @@ const _sender = {'alias': 'Phone', 'fingerprint': 'phone', 'deviceType': 'mobile
 List<int> _json(Object value) => utf8.encode(jsonEncode(value));
 
 List<int> _prepareBody(Map<String, Object> files) => _json({
-      'info': _sender,
-      'files': {
-        for (final entry in files.entries)
-          entry.key: {'id': entry.key, 'fileName': entry.value, 'size': 3, 'fileType': 'text/plain'},
-      },
-    });
+  'info': _sender,
+  'files': {
+    for (final entry in files.entries)
+      entry.key: {'id': entry.key, 'fileName': entry.value, 'size': 3, 'fileType': 'text/plain'},
+  },
+});
 
 void main() {
   late List<(String, String)> peers;
@@ -40,23 +40,26 @@ void main() {
   final folder = p.join(p.separator == r'\' ? r'C:\' : '/', 'Downloads');
 
   ReceiveController make({Duration timeout = const Duration(seconds: 60)}) => ReceiveController(
-        ownInfo: () => _own,
-        receiveEnabled: () => receiveEnabled,
-        saveFolder: () => folder,
-        askUser: (request) {
-          asked.add(request);
-          return answer(request);
-        },
-        dismissPrompt: dismissed.add,
-        onPeer: (info, ip) => peers.add((info.alias, ip)),
-        onFileReceived: received.add,
-        decisionTimeout: timeout,
-        exists: existing.contains,
-        now: () => now,
-      );
+    ownInfo: () => _own,
+    receiveEnabled: () => receiveEnabled,
+    saveFolder: () => folder,
+    askUser: (request) {
+      asked.add(request);
+      return answer(request);
+    },
+    dismissPrompt: dismissed.add,
+    onPeer: (info, ip) => peers.add((info.alias, ip)),
+    onFileReceived: received.add,
+    decisionTimeout: timeout,
+    exists: existing.contains,
+    now: () => now,
+  );
 
-  Future<Map<String, Object?>> accept(ReceiveController controller, Map<String, Object> files,
-      {String ip = '10.0.0.5'}) async {
+  Future<Map<String, Object?>> accept(
+    ReceiveController controller,
+    Map<String, Object> files, {
+    String ip = '10.0.0.5',
+  }) async {
     final reply = await controller.handle('POST', '/api/localsend/v2/prepare-upload', {}, _prepareBody(files), ip);
     expect(reply.status, 200);
     return jsonDecode(utf8.decode(reply.body)) as Map<String, Object?>;
@@ -97,10 +100,25 @@ void main() {
   test('prepare-upload: 403 when receiving is off, 400 for bad bodies, 204 for no files', () async {
     final controller = make();
     receiveEnabled = false;
-    expect((await controller.handle('POST', '/api/localsend/v2/prepare-upload', {}, _prepareBody({'a': 'a.txt'}), 'ip')).status, 403);
+    expect(
+      (await controller.handle(
+        'POST',
+        '/api/localsend/v2/prepare-upload',
+        {},
+        _prepareBody({'a': 'a.txt'}),
+        'ip',
+      )).status,
+      403,
+    );
     receiveEnabled = true;
-    expect((await controller.handle('POST', '/api/localsend/v2/prepare-upload', {}, utf8.encode('{'), 'ip')).status, 400);
-    expect((await controller.handle('POST', '/api/localsend/v2/prepare-upload', {}, _prepareBody({}), 'ip')).status, 204);
+    expect(
+      (await controller.handle('POST', '/api/localsend/v2/prepare-upload', {}, utf8.encode('{'), 'ip')).status,
+      400,
+    );
+    expect(
+      (await controller.handle('POST', '/api/localsend/v2/prepare-upload', {}, _prepareBody({}), 'ip')).status,
+      204,
+    );
     expect(asked, isEmpty);
   });
 
@@ -118,7 +136,13 @@ void main() {
   test('declined requests get 403 and leave no session', () async {
     final controller = make();
     answer = (_) async => false;
-    final reply = await controller.handle('POST', '/api/localsend/v2/prepare-upload', {}, _prepareBody({'a': 'a.txt'}), 'ip');
+    final reply = await controller.handle(
+      'POST',
+      '/api/localsend/v2/prepare-upload',
+      {},
+      _prepareBody({'a': 'a.txt'}),
+      'ip',
+    );
     expect(reply.status, 403);
     expect(controller.isBusy, isFalse);
   });
@@ -126,7 +150,13 @@ void main() {
   test('an unanswered prompt declines after the timeout', () async {
     final controller = make(timeout: const Duration(milliseconds: 20));
     answer = (_) => Completer<bool>().future;
-    final reply = await controller.handle('POST', '/api/localsend/v2/prepare-upload', {}, _prepareBody({'a': 'a.txt'}), 'ip');
+    final reply = await controller.handle(
+      'POST',
+      '/api/localsend/v2/prepare-upload',
+      {},
+      _prepareBody({'a': 'a.txt'}),
+      'ip',
+    );
     expect(reply.status, 403);
     expect(dismissed, hasLength(1));
     expect(controller.isBusy, isFalse);
@@ -138,11 +168,23 @@ void main() {
     answer = (_) => decision.future;
     final first = controller.handle('POST', '/api/localsend/v2/prepare-upload', {}, _prepareBody({'a': 'a.txt'}), 'ip');
     await Future<void>.delayed(Duration.zero);
-    final second = await controller.handle('POST', '/api/localsend/v2/prepare-upload', {}, _prepareBody({'b': 'b.txt'}), 'ip2');
+    final second = await controller.handle(
+      'POST',
+      '/api/localsend/v2/prepare-upload',
+      {},
+      _prepareBody({'b': 'b.txt'}),
+      'ip2',
+    );
     expect(second.status, 409);
     decision.complete(true);
     expect((await first).status, 200);
-    final third = await controller.handle('POST', '/api/localsend/v2/prepare-upload', {}, _prepareBody({'b': 'b.txt'}), 'ip2');
+    final third = await controller.handle(
+      'POST',
+      '/api/localsend/v2/prepare-upload',
+      {},
+      _prepareBody({'b': 'b.txt'}),
+      'ip2',
+    );
     expect(third.status, 409);
   });
 
@@ -161,12 +203,16 @@ void main() {
       expect(target({'sessionId': 'other', 'fileId': 'a', 'token': token}), isA<UploadReject>());
       expect(target({'sessionId': session, 'fileId': 'a', 'token': 'wrong'}), isA<UploadReject>());
       expect(target({'sessionId': session, 'fileId': 'zzz', 'token': token}), isA<UploadReject>());
-      expect(target({'sessionId': session, 'fileId': 'a', 'token': token}, '10.0.0.6'),
-          isA<UploadReject>().having((r) => r.status, 'status', 403));
+      expect(
+        target({'sessionId': session, 'fileId': 'a', 'token': token}, '10.0.0.6'),
+        isA<UploadReject>().having((r) => r.status, 'status', 403),
+      );
       final ok = target({'sessionId': session, 'fileId': 'a', 'token': token});
       expect(ok, isA<UploadWrite>().having((w) => w.path, 'path', p.join(folder, 'a.txt')));
-      expect(target({'sessionId': session, 'fileId': 'a', 'token': token}),
-          isA<UploadReject>().having((r) => r.status, 'status', 409));
+      expect(
+        target({'sessionId': session, 'fileId': 'a', 'token': token}),
+        isA<UploadReject>().having((r) => r.status, 'status', 409),
+      );
     });
 
     test('picks unique names, keeps subfolders and finishes the session', () async {
@@ -182,11 +228,7 @@ void main() {
         paths.add(target.path);
         expect(controller.uploadFinished(query, target.path, success: true).status, 200);
       }
-      expect(paths, [
-        p.join(folder, 'a (1).txt'),
-        p.join(folder, 'a (2).txt'),
-        p.join(folder, 'pics', 'x', 'b.png'),
-      ]);
+      expect(paths, [p.join(folder, 'a (1).txt'), p.join(folder, 'a (2).txt'), p.join(folder, 'pics', 'x', 'b.png')]);
       expect(received, paths);
       expect(controller.isBusy, isFalse);
     });
@@ -194,7 +236,11 @@ void main() {
     test('a failed upload frees its name and can be retried', () async {
       final controller = make();
       final body = await accept(controller, {'1': 'a.txt'});
-      final query = {'sessionId': body['sessionId'] as String, 'fileId': '1', 'token': (body['files'] as Map)['1'] as String};
+      final query = {
+        'sessionId': body['sessionId'] as String,
+        'fileId': '1',
+        'token': (body['files'] as Map)['1'] as String,
+      };
       final first = controller.uploadTarget(query, '10.0.0.5') as UploadWrite;
       expect(controller.uploadFinished(query, first.path, success: false).status, 500);
       expect(received, isEmpty);
@@ -211,7 +257,10 @@ void main() {
     expect(controller.isBusy, isTrue);
     await controller.handle('POST', '/api/localsend/v2/cancel', {'sessionId': session}, [], '10.0.0.6');
     expect(controller.isBusy, isTrue);
-    expect((await controller.handle('POST', '/api/localsend/v2/cancel', {'sessionId': session}, [], '10.0.0.5')).status, 200);
+    expect(
+      (await controller.handle('POST', '/api/localsend/v2/cancel', {'sessionId': session}, [], '10.0.0.5')).status,
+      200,
+    );
     expect(controller.isBusy, isFalse);
   });
 
@@ -222,5 +271,66 @@ void main() {
     now = now.add(const Duration(minutes: 3));
     expect(controller.isBusy, isFalse);
     await accept(controller, {'2': 'b.txt'}, ip: '10.0.0.7');
+  });
+
+  group('progress', () {
+    test('starts on accept, counts bytes and ends as done', () async {
+      var changes = 0;
+      final controller = ReceiveController(
+        ownInfo: () => _own,
+        receiveEnabled: () => true,
+        saveFolder: () => folder,
+        askUser: (_) async => true,
+        dismissPrompt: (_) {},
+        onPeer: (_, _) {},
+        onFileReceived: (_) {},
+        onProgressChanged: () => changes++,
+        exists: (_) => false,
+        now: () => now,
+      );
+      expect(controller.progress, isNull);
+      final body = await accept(controller, {'1': 'a.txt', '2': 'b.txt'});
+      final progress = controller.progress!;
+      expect(progress.phase, ReceivePhase.receiving);
+      expect(progress.files.map((f) => f.fileName), ['a.txt', 'b.txt']);
+      controller.addReceivedBytes(5);
+      controller.addReceivedBytes(7);
+      expect(progress.receivedBytes, 12);
+      final tokens = (body['files'] as Map).cast<String, String>();
+      for (final id in ['1', '2']) {
+        final query = {'sessionId': body['sessionId'] as String, 'fileId': id, 'token': tokens[id]!};
+        final target = controller.uploadTarget(query, '10.0.0.5') as UploadWrite;
+        controller.uploadFinished(query, target.path, success: true);
+      }
+      expect(progress.finishedIds, {'1', '2'});
+      expect(progress.phase, ReceivePhase.done);
+      expect(progress.fraction, 1);
+      expect(changes, greaterThan(3));
+      controller.clearProgress();
+      expect(controller.progress, isNull);
+    });
+
+    test('a cancel from the sender marks it failed', () async {
+      final controller = make();
+      final body = await accept(controller, {'1': 'a.txt'});
+      await controller.handle(
+        'POST',
+        '/api/localsend/v2/cancel',
+        {'sessionId': body['sessionId'] as String},
+        [],
+        '10.0.0.5',
+      );
+      expect(controller.progress!.phase, ReceivePhase.failed);
+      expect(controller.progress!.message, 'The sender cancelled.');
+    });
+
+    test('a silent sender makes it fail after the idle timeout', () async {
+      final controller = make();
+      await accept(controller, {'1': 'a.txt'});
+      now = now.add(const Duration(minutes: 3));
+      controller.checkIdle();
+      expect(controller.progress!.phase, ReceivePhase.failed);
+      expect(controller.isBusy, isFalse);
+    });
   });
 }

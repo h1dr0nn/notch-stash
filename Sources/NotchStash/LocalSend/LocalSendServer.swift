@@ -34,6 +34,8 @@ final class LocalSendServer: @unchecked Sendable {
     var prepareUpload: @Sendable (HTTPRequestHead, String) async -> LocalSendUploadTarget = { _, _ in
         .reject(LocalSendResponse(status: 403))
     }
+    /// Bytes of an upload body written to disk, as they arrive.
+    var uploadProgress: @Sendable (Int) -> Void = { _ in }
     /// Called when an upload finished writing (success) or failed.
     var finishUpload: @Sendable (HTTPRequestHead, URL, Bool) async -> LocalSendResponse = { _, _, _ in LocalSendResponse(status: 500) }
 
@@ -211,7 +213,10 @@ private final class ConnectionHandler: @unchecked Sendable {
         guard let reader, let upload else { return }
         do {
             let decoded = try reader.consume(data)
-            if !decoded.isEmpty { try upload.handle.write(contentsOf: decoded) }
+            if !decoded.isEmpty {
+                try upload.handle.write(contentsOf: decoded)
+                server.uploadProgress(decoded.count)
+            }
         } catch {
             return finishUpload(false)
         }

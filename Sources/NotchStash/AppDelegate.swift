@@ -40,9 +40,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updater.startAutomaticChecks()
         incomingWindow = IncomingWindowController(
             service: localSend,
-            presentInNotch: { [weak self] request in
+            presentInNotch: { [weak self] display in
                 guard let self else { return false }
-                return self.coordinator.presentIncoming(request) { [weak self] accept in
+                return self.coordinator.presentIncoming(display) { [weak self] accept in
                     self?.localSend.decideIncoming(accept)
                 }
             },

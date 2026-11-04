@@ -170,7 +170,7 @@ class AppController extends ChangeNotifier {
       _lastIncomingId = incoming.id;
       if (_mode != WindowMode.incoming) _beforeIncoming = _mode;
       _present(WindowMode.incoming);
-    } else if (incoming == null && _mode == WindowMode.incoming) {
+    } else if (incoming == null && localSend.receiving == null && _mode == WindowMode.incoming) {
       _lastIncomingId = null;
       _restoreAfterIncoming();
     }

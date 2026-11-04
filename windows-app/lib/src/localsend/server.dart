@@ -80,7 +80,10 @@ class LocalSendServer {
           await file.parent.create(recursive: true);
           final sink = file.openWrite();
           try {
-            await request.cast<List<int>>().pipe(sink);
+            await for (final chunk in request) {
+              sink.add(chunk);
+              controller.addReceivedBytes(chunk.length);
+            }
             success = true;
           } finally {
             await sink.close().catchError((Object _) {});

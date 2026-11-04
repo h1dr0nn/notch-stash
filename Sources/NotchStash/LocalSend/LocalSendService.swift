@@ -25,6 +25,9 @@ final class LocalSendService: ObservableObject {
     @Published private(set) var peers: [LocalSendPeer] = []
     @Published private(set) var isRunning = false
     @Published private(set) var incoming: LocalSendIncomingRequest?
+    @Published var receiving: LocalSendReceiveProgress?
+    var lastReceiveActivity = Date()
+    var receiveWatchdog: Timer?
     @Published private(set) var transfers: [String: LocalSendTransferState] = [:]
 
     var onIncomingRequest: () -> Void = {}
@@ -37,6 +40,10 @@ final class LocalSendService: ObservableObject {
     private var multicast: MulticastSocket?
     private var incomingDecision: CheckedContinuation<Bool, Never>?
     private var session: ReceiveSession?
+
+    func endReceiveSession() {
+        session = nil
+    }
     private var sendTasks: [String: Task<Void, Never>] = [:]
     private var cancellables: Set<AnyCancellable> = []
     var isSweeping = false
@@ -79,6 +86,9 @@ final class LocalSendService: ObservableObject {
         }
         server.prepareUpload = { [weak self] head, ip in
             await self?.uploadTarget(head, from: ip) ?? .reject(LocalSendResponse(status: 500))
+        }
+        server.uploadProgress = { [weak self] count in
+            Task { @MainActor in self?.received(bytes: count) }
         }
         server.finishUpload = { [weak self] head, url, success in
             await self?.uploadFinished(head, url: url, success: success) ?? LocalSendResponse(status: 500)
@@ -194,7 +204,10 @@ final class LocalSendService: ObservableObject {
         case ("POST", "/api/localsend/v2/prepare-upload"):
             return await prepareIncoming(request)
         case ("POST", "/api/localsend/v2/cancel"):
-            if session?.id == request.head.query["sessionId"] { session = nil }
+            if session?.id == request.head.query["sessionId"] {
+                session = nil
+                finishReceiving(.failed("The sender cancelled."))
+            }
             return LocalSendResponse(status: 200)
         default:
             return LocalSendResponse(status: 404)
@@ -222,6 +235,7 @@ final class LocalSendService: ObservableObject {
         let tokens = Dictionary(uniqueKeysWithValues: body.files.keys.map { ($0, UUID().uuidString) })
         let newSession = ReceiveSession(id: UUID().uuidString, senderIP: request.remoteIP, files: body.files, tokens: tokens)
         session = newSession
+        startReceiving(from: body.info, files: files)
         return .json(LocalSendPrepareUploadResponse(sessionId: newSession.id, files: tokens))
     }
 
@@ -256,12 +270,17 @@ final class LocalSendService: ObservableObject {
     private func uploadFinished(_ head: HTTPRequestHead, url: URL, success: Bool) -> LocalSendResponse {
         guard success else {
             try? FileManager.default.removeItem(at: url)
+            session = nil
+            finishReceiving(.failed("A file could not be saved."))
             return LocalSendResponse(status: 500)
         }
         store.add([url])
         if var current = session, let fileId = head.query["fileId"] {
             current.finished.insert(fileId)
-            session = current.finished.count == current.files.count ? nil : current
+            receiving?.finishedIds.insert(fileId)
+            let complete = current.finished.count == current.files.count
+            session = complete ? nil : current
+            if complete { finishReceiving(.done) }
         }
         return LocalSendResponse(status: 200)
     }
@@ -350,38 +369,5 @@ extension LocalSendService {
             await client.cancel(peer, sessionId: response.sessionId)
             transfers[peer.id] = .failed(error.localizedDescription)
         }
-    }
-
-    /// A file to send, with folders flattened into their files and relative paths.
-    private struct SendEntry {
-        let url: URL
-        let name: String
-        let size: Int64
-        let mimeType: String
-    }
-
-    private static func expand(_ urls: [URL]) -> [SendEntry] {
-        var entries: [SendEntry] = []
-        let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey, .contentTypeKey]
-        func entry(_ url: URL, name: String) -> SendEntry? {
-            guard let values = try? url.resourceValues(forKeys: Set(keys)), values.isRegularFile == true else { return nil }
-            let mime = values.contentType?.preferredMIMEType ?? "application/octet-stream"
-            return SendEntry(url: url, name: name, size: Int64(values.fileSize ?? 0), mimeType: mime)
-        }
-        for url in urls {
-            var isDirectory: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
-            if !isDirectory.boolValue {
-                if let single = entry(url, name: url.lastPathComponent) { entries.append(single) }
-                continue
-            }
-            let base = url.deletingLastPathComponent().standardizedFileURL.path
-            let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles])
-            while let child = enumerator?.nextObject() as? URL {
-                let relative = String(child.standardizedFileURL.path.dropFirst(base.count + 1))
-                if let nested = entry(child, name: relative) { entries.append(nested) }
-            }
-        }
-        return entries
     }
 }

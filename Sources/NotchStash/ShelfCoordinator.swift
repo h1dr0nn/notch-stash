@@ -90,12 +90,12 @@ final class ShelfCoordinator {
 
     /// Shows an incoming-files prompt in the notch shelf of the screen with the pointer (or the first notched
     /// screen). Returns false when there is no notch shelf to use.
-    func presentIncoming(_ request: LocalSendIncomingRequest, decide: @escaping (Bool) -> Void) -> Bool {
+    func presentIncoming(_ display: LocalSendIncomingDisplay, decide: @escaping (Bool) -> Void) -> Bool {
         guard settings.notchEnabled, !isFloatingShown else { return false }
         let pointer = NSEvent.mouseLocation
         guard let notch = notchControllers.first(where: { NSMouseInRect(pointer, $0.screen.frame, false) })
             ?? notchControllers.first else { return false }
-        notch.showIncoming(request, decide: decide)
+        notch.showIncoming(display, decide: decide)
         return true
     }
 

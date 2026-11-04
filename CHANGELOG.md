@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.5 — 2026-11-04
+
+### Added
+- The receiving side now shows progress: after **Accept**, the notch shelf (or the Incoming Files window) shows each file ticking off, the percentage and bytes received, then **Received** or what went wrong.
+
+### Fixed
+- An incoming transfer whose sender disappears ends after two minutes instead of blocking new transfers.
+
 ## 0.6.4 — 2026-11-04
 
 ### Fixed

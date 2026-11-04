@@ -204,6 +204,34 @@ private struct PeerRow: View {
     }
 }
 
+/// The window version of the incoming prompt and progress, for screens without a notch shelf.
+private struct IncomingWindowView: View {
+    let display: LocalSendIncomingDisplay
+    let decide: (Bool) -> Void
+
+    var body: some View {
+        switch display {
+        case let .prompt(request):
+            IncomingView(request: request, decide: decide)
+        case let .progress(progress):
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Receiving from \(progress.sender.alias)")
+                    .font(.headline)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(progress.files, id: \.id) {
+                            IncomingTile(file: $0, isFinished: progress.finishedIds.contains($0.id))
+                        }
+                    }
+                }
+                ReceiveProgressColumn(progress: progress)
+            }
+            .padding(20)
+            .frame(width: 340)
+        }
+    }
+}
+
 /// Asks whether to accept files offered by another device.
 private struct IncomingView: View {
     let request: LocalSendIncomingRequest
@@ -279,29 +307,37 @@ final class IncomingWindowController: NSObject, NSWindowDelegate {
     private let service: LocalSendService
     private var window: NSWindow?
     private var cancellable: AnyCancellable?
-    private let presentInNotch: (LocalSendIncomingRequest) -> Bool
+    private let presentInNotch: (LocalSendIncomingDisplay) -> Bool
     private let dismissInNotch: () -> Void
 
     /// `presentInNotch` returns false when no notch shelf can show the prompt; the window is used then.
     init(
         service: LocalSendService,
-        presentInNotch: @escaping (LocalSendIncomingRequest) -> Bool,
+        presentInNotch: @escaping (LocalSendIncomingDisplay) -> Bool,
         dismissInNotch: @escaping () -> Void
     ) {
         self.service = service
         self.presentInNotch = presentInNotch
         self.dismissInNotch = dismissInNotch
         super.init()
-        cancellable = service.$incoming
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] request in
-                if let request { self?.show(request) } else { self?.dismiss() }
+        // A short debounce bridges the gap between answering the prompt and the transfer starting.
+        cancellable = service.$incoming.combineLatest(service.$receiving)
+            .map { incoming, receiving in
+                incoming.map(LocalSendIncomingDisplay.prompt) ?? receiving.map(LocalSendIncomingDisplay.progress)
+            }
+            .removeDuplicates()
+            .debounce(for: .milliseconds(150), scheduler: DispatchQueue.main)
+            .sink { [weak self] display in
+                if let display { self?.show(display) } else { self?.dismiss() }
             }
     }
 
-    private func show(_ request: LocalSendIncomingRequest) {
-        if presentInNotch(request) { return }
-        let view = IncomingView(request: request) { [weak self] accept in
+    private func show(_ display: LocalSendIncomingDisplay) {
+        if presentInNotch(display) {
+            closeWindow()
+            return
+        }
+        let view = IncomingWindowView(display: display) { [weak self] accept in
             self?.service.decideIncoming(accept)
         }
         let window = window ?? NSWindow(contentViewController: NSHostingController(rootView: view))
@@ -312,13 +348,19 @@ final class IncomingWindowController: NSObject, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.delegate = self
         self.window = window
-        window.center()
-        NSApp.activate()
+        if !window.isVisible {
+            window.center()
+            NSApp.activate()
+        }
         window.makeKeyAndOrderFront(nil)
     }
 
     private func dismiss() {
         dismissInNotch()
+        closeWindow()
+    }
+
+    private func closeWindow() {
         window?.delegate = nil
         window?.close()
         window?.delegate = self

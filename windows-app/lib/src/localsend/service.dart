@@ -55,6 +55,7 @@ class LocalSendService extends ChangeNotifier {
       dismissPrompt: (request) => _resolveIncoming(request.id, accept: false),
       onPeer: (info, ip) => _upsert(info, ip),
       onFileReceived: (path) => onFilesReceived([path]),
+      onProgressChanged: _receiveProgressChanged,
     );
     _server = LocalSendServer(_receiver);
     _discovery = MulticastDiscovery(onMessage: _multicastMessage);
@@ -88,6 +89,28 @@ class LocalSendService extends ChangeNotifier {
 
   TransferState? transferFor(Peer peer) => _transfers[peer.id];
   IncomingRequest? get incoming => _incoming;
+
+  /// The accepted incoming transfer; shown briefly after it ends, then cleared.
+  ReceiveProgress? get receiving => _receiver.progress;
+
+  Timer? _idleCheck;
+  Timer? _clearProgress;
+
+  void _receiveProgressChanged() {
+    final progress = _receiver.progress;
+    if (progress != null && progress.phase == ReceivePhase.receiving) {
+      _idleCheck ??= Timer.periodic(const Duration(seconds: 10), (_) => _receiver.checkIdle());
+      _clearProgress?.cancel();
+    } else {
+      _idleCheck?.cancel();
+      _idleCheck = null;
+      if (progress != null) {
+        _clearProgress?.cancel();
+        _clearProgress = Timer(const Duration(milliseconds: 2500), _receiver.clearProgress);
+      }
+    }
+    notifyListeners();
+  }
 
   /// Follows the Nearby Sharing setting.
   Future<void> applySettings() async {
@@ -259,7 +282,8 @@ class LocalSendService extends ChangeNotifier {
     final decision = _decision;
     _incoming = null;
     _decision = null;
-    notifyListeners();
+    // On accept the transfer's progress follows at once; notifying now would close the window in between.
+    if (!accept) notifyListeners();
     if (decision != null && !decision.isCompleted) decision.complete(accept);
   }
 

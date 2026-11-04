@@ -43,6 +43,29 @@ class IncomingRequest {
   int get totalSize => files.fold(0, (sum, file) => sum + file.size);
 }
 
+/// Where an accepted incoming transfer is.
+enum ReceivePhase { receiving, done, failed }
+
+/// Progress of an accepted incoming transfer, shown to the receiver.
+class ReceiveProgress {
+  ReceiveProgress({required this.sender, required this.files});
+
+  final DeviceInfo sender;
+  final List<FileInfo> files;
+  int receivedBytes = 0;
+  final Set<String> finishedIds = {};
+  ReceivePhase phase = ReceivePhase.receiving;
+  String message = '';
+
+  int get totalBytes => files.fold(0, (sum, file) => sum + file.size);
+
+  double get fraction {
+    if (phase == ReceivePhase.done) return 1;
+    if (totalBytes <= 0) return 0;
+    return (receivedBytes / totalBytes).clamp(0, 1).toDouble();
+  }
+}
+
 class _Session {
   _Session({required this.id, required this.senderIp, required this.files, required this.tokens});
 
@@ -67,14 +90,15 @@ class ReceiveController {
     required this.dismissPrompt,
     required this.onPeer,
     required this.onFileReceived,
+    this.onProgressChanged,
     this.decisionTimeout = const Duration(seconds: 60),
     this.sessionIdleTimeout = const Duration(minutes: 2),
     bool Function(String path)? exists,
     DateTime Function()? now,
     Random? random,
-  })  : _exists = exists ?? _entityExists,
-        _now = now ?? DateTime.now,
-        _random = random ?? Random.secure();
+  }) : _exists = exists ?? _entityExists,
+       _now = now ?? DateTime.now,
+       _random = random ?? Random.secure();
 
   final DeviceInfo Function() ownInfo;
   final bool Function() receiveEnabled;
@@ -87,6 +111,9 @@ class ReceiveController {
   final void Function(IncomingRequest request) dismissPrompt;
   final void Function(DeviceInfo info, String ip) onPeer;
   final void Function(String path) onFileReceived;
+
+  /// Called whenever [progress] changes.
+  final void Function()? onProgressChanged;
   final Duration decisionTimeout;
   final Duration sessionIdleTimeout;
 
@@ -96,6 +123,36 @@ class ReceiveController {
 
   _Session? _session;
   bool _prompting = false;
+  ReceiveProgress? _progress;
+
+  /// The accepted transfer, until the caller clears it with [clearProgress].
+  ReceiveProgress? get progress => _progress;
+
+  void clearProgress() {
+    _progress = null;
+    onProgressChanged?.call();
+  }
+
+  void _endProgress(ReceivePhase phase, [String message = '']) {
+    final progress = _progress;
+    if (progress == null || progress.phase != ReceivePhase.receiving) return;
+    progress
+      ..phase = phase
+      ..message = message;
+    onProgressChanged?.call();
+  }
+
+  /// Counts bytes written by an upload in progress.
+  void addReceivedBytes(int count) {
+    final progress = _progress;
+    if (progress == null || progress.phase != ReceivePhase.receiving) return;
+    progress.receivedBytes += count;
+    _session?.lastActivity = _now();
+    onProgressChanged?.call();
+  }
+
+  /// Ends a transfer whose sender went silent; call periodically while [progress] is receiving.
+  void checkIdle() => _expireIdleSession();
 
   static bool _entityExists(String path) =>
       FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.notFound;
@@ -130,6 +187,7 @@ class ReceiveController {
         final session = _session;
         if (session != null && session.id == query['sessionId'] && session.senderIp == remoteIp) {
           _session = null;
+          _endProgress(ReceivePhase.failed, 'The sender cancelled.');
         }
         return const HttpReply(200);
       default:
@@ -150,10 +208,13 @@ class ReceiveController {
     _prompting = true;
     bool accepted;
     try {
-      accepted = await askUser(incoming).timeout(decisionTimeout, onTimeout: () {
-        dismissPrompt(incoming);
-        return false;
-      });
+      accepted = await askUser(incoming).timeout(
+        decisionTimeout,
+        onTimeout: () {
+          dismissPrompt(incoming);
+          return false;
+        },
+      );
     } finally {
       _prompting = false;
     }
@@ -163,6 +224,8 @@ class ReceiveController {
     final session = _Session(id: _token(), senderIp: remoteIp, files: request.files, tokens: tokens)
       ..lastActivity = _now();
     _session = session;
+    _progress = ReceiveProgress(sender: request.info, files: files);
+    onProgressChanged?.call();
     return HttpReply.json(PrepareUploadResponse(sessionId: session.id, files: tokens).toJson());
   }
 
@@ -176,10 +239,7 @@ class ReceiveController {
     if (sessionId == null || fileId == null || token == null) return const UploadReject(400);
     if (session == null) return const UploadReject(409);
     final file = session.files[fileId];
-    if (session.id != sessionId ||
-        file == null ||
-        session.tokens[fileId] != token ||
-        session.senderIp != remoteIp) {
+    if (session.id != sessionId || file == null || session.tokens[fileId] != token || session.senderIp != remoteIp) {
       return const UploadReject(403);
     }
     if (session.active.containsKey(fileId) || session.finished.contains(fileId)) {
@@ -207,11 +267,18 @@ class ReceiveController {
     session.lastActivity = _now();
     if (!success) {
       if (relative != null) session.reserved.remove(relative.toLowerCase());
+      _endProgress(ReceivePhase.failed, 'A file could not be saved.');
       return const HttpReply(500);
     }
     session.finished.add(fileId);
+    _progress?.finishedIds.add(fileId);
     onFileReceived(path);
-    if (session.finished.length >= session.files.length) _session = null;
+    if (session.finished.length >= session.files.length) {
+      _session = null;
+      _endProgress(ReceivePhase.done);
+    } else {
+      onProgressChanged?.call();
+    }
     return const HttpReply(200);
   }
 
@@ -219,7 +286,10 @@ class ReceiveController {
   void _expireIdleSession() {
     final session = _session;
     if (session == null || session.active.isNotEmpty) return;
-    if (_now().difference(session.lastActivity) > sessionIdleTimeout) _session = null;
+    if (_now().difference(session.lastActivity) > sessionIdleTimeout) {
+      _session = null;
+      _endProgress(ReceivePhase.failed, 'The transfer stopped.');
+    }
   }
 
   Object? _decode(List<int> body) {
