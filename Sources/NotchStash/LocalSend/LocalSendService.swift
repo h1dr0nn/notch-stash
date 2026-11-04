@@ -30,7 +30,7 @@ final class LocalSendService: ObservableObject {
     var onIncomingRequest: () -> Void = {}
     let localNetwork = LocalNetworkPermission()
 
-    private let settings = AppSettings.shared
+    let settings = AppSettings.shared
     private let store: ShelfStore
     let client = LocalSendClient()
     private let server = LocalSendServer()
@@ -99,6 +99,7 @@ final class LocalSendService: ObservableObject {
         localNetwork.check()
         announce()
         sweep()
+        probeSavedDevices()
     }
 
     private func stopNetworking() {
@@ -132,6 +133,7 @@ final class LocalSendService: ObservableObject {
         peers.removeAll { $0.lastSeen < staleBefore }
         announce()
         sweep()
+        probeSavedDevices()
         for delay in [1.0, 3.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.announce() }
         }

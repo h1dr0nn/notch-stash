@@ -71,6 +71,8 @@ final class AppSettings: ObservableObject {
     @Published var receiveFiles: Bool { didSet { save(receiveFiles, Key.receiveFiles) } }
     @Published var deviceName: String { didSet { save(deviceName, Key.deviceName) } }
     @Published var saveFolderPath: String { didSet { save(saveFolderPath, Key.saveFolderPath) } }
+    /// Devices added by address, asked again on every scan (they may sit on another subnet).
+    @Published var savedDeviceAddresses: [String] { didSet { save(savedDeviceAddresses, Key.savedDeviceAddresses) } }
     /// Random LocalSend identity, kept so other devices recognise this Mac.
     let localSendFingerprint: String
 
@@ -88,6 +90,7 @@ final class AppSettings: ObservableObject {
         static let deviceName = "deviceName"
         static let saveFolderPath = "saveFolderPath"
         static let localSendFingerprint = "localSendFingerprint"
+        static let savedDeviceAddresses = "savedDeviceAddresses"
     }
 
     private let defaults = UserDefaults.standard
@@ -124,6 +127,7 @@ final class AppSettings: ObservableObject {
         deviceName = defaults.string(forKey: Key.deviceName) ?? Host.current().localizedName ?? "Mac"
         saveFolderPath = defaults.string(forKey: Key.saveFolderPath) ?? NSHomeDirectory() + "/Downloads"
         localSendFingerprint = defaults.string(forKey: Key.localSendFingerprint) ?? UUID().uuidString
+        savedDeviceAddresses = defaults.stringArray(forKey: Key.savedDeviceAddresses) ?? []
     }
 
     /// Human-readable shortcut, nil when a key combination is selected but not recorded yet.

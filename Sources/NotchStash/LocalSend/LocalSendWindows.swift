@@ -24,9 +24,10 @@ private struct SendView: View {
                     .controlSize(.small)
             }
             content
+            AddByAddress(service: service)
         }
         .padding(16)
-        .frame(width: 400, height: 360, alignment: .top)
+        .frame(width: 400, height: 400, alignment: .top)
         .onAppear { service.scan() }
     }
 
@@ -80,6 +81,45 @@ private struct SendView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// Adds a device on another subnet, which discovery cannot reach, by its IP address.
+private struct AddByAddress: View {
+    @ObservedObject var service: LocalSendService
+    @State private var address = ""
+    @State private var status: String?
+    @State private var isAdding = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                TextField("IP Address", text: $address)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(add)
+                Button("Add", action: add)
+                    .disabled(address.trimmingCharacters(in: .whitespaces).isEmpty || isAdding)
+            }
+            Text(status ?? "Not listed? Enter the other device's IP address. It is remembered for next time.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func add() {
+        let target = address.trimmingCharacters(in: .whitespaces)
+        guard !target.isEmpty, !isAdding else { return }
+        isAdding = true
+        status = "Looking for a device at \(target)…"
+        Task {
+            if let name = await service.addDevice(address: target) {
+                status = "Added \(name)."
+                address = ""
+            } else {
+                status = "No Notch Stash or LocalSend answered at \(target)."
+            }
+            isAdding = false
+        }
     }
 }
 

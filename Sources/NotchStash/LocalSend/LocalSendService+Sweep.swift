@@ -3,6 +3,34 @@ import Foundation
 import NotchStashCore
 
 extension LocalSendService {
+    /// Asks one address directly and remembers it when a device answers. Returns the device's name.
+    func addDevice(address: String) async -> String? {
+        let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let found = await probe(trimmed) else { return nil }
+        if !settings.savedDeviceAddresses.contains(trimmed) {
+            settings.savedDeviceAddresses.append(trimmed)
+        }
+        return found.alias
+    }
+
+    /// Re-asks every remembered address; devices on other subnets are only reachable this way.
+    func probeSavedDevices() {
+        for address in settings.savedDeviceAddresses {
+            Task { _ = await probe(address) }
+        }
+    }
+
+    private func probe(_ address: String) async -> LocalSendPeer? {
+        let info = ownInfo()
+        guard let (peer, scheme) = await client.probe(address, info: info), peer.fingerprint != info.fingerprint else {
+            return nil
+        }
+        var resolved = peer
+        resolved.port = resolved.port ?? 53317
+        resolved.protocol = scheme
+        return upsert(resolved, ip: address)
+    }
+
     /// Multicast is often blocked on office and guest networks, so every address of the local
     /// subnets is also asked directly over HTTP, the way LocalSend's legacy discovery works.
     func sweep() {

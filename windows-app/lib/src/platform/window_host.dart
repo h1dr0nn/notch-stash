@@ -9,7 +9,7 @@ import '../core/placement.dart';
 enum WindowMode {
   hidden(Size.zero),
   shelf(Size(380, 190)),
-  send(Size(420, 400)),
+  send(Size(420, 460)),
   incoming(Size(360, 340)),
   settings(Size(480, 780));
 

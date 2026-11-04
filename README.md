@@ -50,6 +50,7 @@ Notch Stash speaks the LocalSend protocol, so it swaps files with any device run
 
 - **Send:** choose **Send to Device…**, pick a device from the list, and it gets a prompt to accept. Each device shows its progress and result.
 - **Receive:** when a device sends you files, the notch shelf drops down with the offered files and **Accept** / **Decline** (a small window asks instead on screens without a notch). Accepted files are saved to Downloads, or the folder picked in Settings, and appear on the shelf. An unanswered request is declined after a minute.
+- **Not listed?** Devices on another subnet, common on office networks, cannot be found automatically. Type the other device's IP address in **Send to Device** and choose **Add**; it is remembered, and that device sees this one too.
 - Turn receiving off, or nearby sharing altogether, in **Settings → Sharing**.
 
 ## Permissions

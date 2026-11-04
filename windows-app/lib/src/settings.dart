@@ -19,6 +19,7 @@ class AppSettings extends ChangeNotifier {
   static const _saveFolderKey = 'saveFolderPath';
   static const _fingerprintKey = 'localSendFingerprint';
   static const _checkForUpdatesKey = 'checkForUpdates';
+  static const _savedAddressesKey = 'savedDeviceAddresses';
 
   final SharedPreferencesWithCache _prefs;
   final String _defaultSaveFolder;
@@ -100,6 +101,16 @@ class AppSettings extends ChangeNotifier {
   }
 
   String get fingerprint => _prefs.getString(_fingerprintKey) ?? '';
+
+  /// Devices added by address, asked again on every scan (they may sit on another subnet).
+  List<String> get savedDeviceAddresses => _prefs.getStringList(_savedAddressesKey) ?? const [];
+
+  Future<void> addSavedDeviceAddress(String address) async {
+    final current = savedDeviceAddresses;
+    if (current.contains(address)) return;
+    await _prefs.setStringList(_savedAddressesKey, [...current, address]);
+    notifyListeners();
+  }
 
   bool get checkForUpdates => _prefs.getBool(_checkForUpdatesKey) ?? true;
 

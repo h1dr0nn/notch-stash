@@ -119,6 +119,7 @@ class LocalSendService extends ChangeNotifier {
       _isRunning = true;
       notifyListeners();
       _announce();
+      _probeSavedDevices();
     } on SocketException {
       await _server.stop();
       _discovery.stop();
@@ -154,6 +155,7 @@ class LocalSendService extends ChangeNotifier {
     await _discovery.refreshInterfaces();
     _announce();
     unawaited(_sweep());
+    _probeSavedDevices();
     var round = 0;
     _rescan?.cancel();
     _rescan = Timer.periodic(const Duration(seconds: 2), (timer) {
@@ -164,6 +166,29 @@ class LocalSendService extends ChangeNotifier {
   }
 
   void _announce() => _discovery.send(ownInfo(announce: true).toJson());
+
+  /// Asks one address directly and remembers it when a device answers. Returns the device's name.
+  Future<String?> addDevice(String address) async {
+    final trimmed = address.trim();
+    if (trimmed.isEmpty || !_isRunning) return null;
+    final peer = await _probe(trimmed);
+    if (peer == null) return null;
+    await settings.addSavedDeviceAddress(trimmed);
+    return peer.alias;
+  }
+
+  /// Re-asks every remembered address; devices on other subnets are only reachable this way.
+  void _probeSavedDevices() {
+    for (final address in settings.savedDeviceAddresses) {
+      unawaited(_probe(address));
+    }
+  }
+
+  Future<Peer?> _probe(String address) async {
+    final info = await _client.probe(address, ownInfo());
+    if (info == null || info.fingerprint == settings.fingerprint) return null;
+    return _upsert(info, address);
+  }
 
   bool _sweeping = false;
 

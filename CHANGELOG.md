@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.2 — 2026-11-04
+
+### Added
+- Add a device by IP address in Send to Device. Devices on another subnet (common on office networks) cannot be found automatically; once added, they are remembered and found again on every scan, and they see this computer too.
+
 ## 0.6.1 — 2026-11-04
 
 ### Added
