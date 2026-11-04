@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/subnet_sweep.dart';
 import '../settings.dart';
 import 'client.dart';
 import 'discovery.dart';
@@ -81,8 +82,7 @@ class LocalSendService extends ChangeNotifier {
   bool get isRunning => _isRunning;
 
   List<Peer> get peers {
-    final list = _peers.values.toList()
-      ..sort((a, b) => a.alias.toLowerCase().compareTo(b.alias.toLowerCase()));
+    final list = _peers.values.toList()..sort((a, b) => a.alias.toLowerCase().compareTo(b.alias.toLowerCase()));
     return list;
   }
 
@@ -99,16 +99,16 @@ class LocalSendService extends ChangeNotifier {
   }
 
   DeviceInfo ownInfo({bool? announce}) => DeviceInfo(
-        alias: settings.deviceName,
-        version: LocalSendDefaults.protocolVersion,
-        deviceModel: 'Windows',
-        deviceType: 'desktop',
-        fingerprint: settings.fingerprint,
-        port: _server.port ?? LocalSendDefaults.port,
-        protocol: 'http',
-        download: false,
-        announce: announce,
-      );
+    alias: settings.deviceName,
+    version: LocalSendDefaults.protocolVersion,
+    deviceModel: 'Windows',
+    deviceType: 'desktop',
+    fingerprint: settings.fingerprint,
+    port: _server.port ?? LocalSendDefaults.port,
+    protocol: 'http',
+    download: false,
+    announce: announce,
+  );
 
   Future<void> _start() async {
     if (_isRunning || _starting) return;
@@ -153,6 +153,7 @@ class LocalSendService extends ChangeNotifier {
     notifyListeners();
     await _discovery.refreshInterfaces();
     _announce();
+    unawaited(_sweep());
     var round = 0;
     _rescan?.cancel();
     _rescan = Timer.periodic(const Duration(seconds: 2), (timer) {
@@ -163,6 +164,38 @@ class LocalSendService extends ChangeNotifier {
   }
 
   void _announce() => _discovery.send(ownInfo(announce: true).toJson());
+
+  bool _sweeping = false;
+
+  /// Multicast is often blocked on office and guest networks, so every address near this PC's
+  /// IPv4 addresses is also asked directly over HTTP, the way LocalSend's legacy discovery works.
+  Future<void> _sweep() async {
+    if (_sweeping || !_isRunning) return;
+    _sweeping = true;
+    try {
+      final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
+      final hosts = <String>{
+        for (final interface in interfaces)
+          for (final address in interface.addresses)
+            if (!address.isLoopback) ...sweepHosts(address.address),
+      };
+      final info = ownInfo();
+      final queue = hosts.iterator;
+      Future<void> worker() async {
+        while (_isRunning && queue.moveNext()) {
+          final ip = queue.current;
+          final peer = await _client.probe(ip, info);
+          if (peer != null && peer.fingerprint != settings.fingerprint) _upsert(peer, ip);
+        }
+      }
+
+      await Future.wait([for (var i = 0; i < 96; i++) worker()]);
+    } on SocketException {
+      // No usable network right now; the next scan tries again.
+    } finally {
+      _sweeping = false;
+    }
+  }
 
   void _multicastMessage(Object? json, String ip) {
     final info = DeviceInfo.fromJson(json);
@@ -262,8 +295,11 @@ class LocalSendService extends ChangeNotifier {
         case PrepareBusy():
           _finish(peer, cancellation, const TransferBusy());
         case PreparePinRequired():
-          _finish(peer, cancellation,
-              const TransferFailed('This device asks for a PIN, which Notch Stash does not support yet.'));
+          _finish(
+            peer,
+            cancellation,
+            const TransferFailed('This device asks for a PIN, which Notch Stash does not support yet.'),
+          );
         case PrepareFailed(:final message):
           _finish(peer, cancellation, TransferFailed(message));
       }

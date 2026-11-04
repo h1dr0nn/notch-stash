@@ -18,15 +18,14 @@ class AppSettings extends ChangeNotifier {
   static const _deviceNameKey = 'deviceName';
   static const _saveFolderKey = 'saveFolderPath';
   static const _fingerprintKey = 'localSendFingerprint';
+  static const _checkForUpdatesKey = 'checkForUpdates';
 
   final SharedPreferencesWithCache _prefs;
   final String _defaultSaveFolder;
 
   /// Loads settings; [defaultSaveFolder] is used until the user picks another folder.
   static Future<AppSettings> load({required String defaultSaveFolder}) async {
-    final prefs = await SharedPreferencesWithCache.create(
-      cacheOptions: const SharedPreferencesWithCacheOptions(),
-    );
+    final prefs = await SharedPreferencesWithCache.create(cacheOptions: const SharedPreferencesWithCacheOptions());
     final settings = AppSettings._(prefs, defaultSaveFolder);
     if (prefs.getString(_fingerprintKey) == null) {
       await prefs.setString(_fingerprintKey, newFingerprint());
@@ -101,4 +100,11 @@ class AppSettings extends ChangeNotifier {
   }
 
   String get fingerprint => _prefs.getString(_fingerprintKey) ?? '';
+
+  bool get checkForUpdates => _prefs.getBool(_checkForUpdatesKey) ?? true;
+
+  Future<void> setCheckForUpdates(bool value) async {
+    await _prefs.setBool(_checkForUpdatesKey, value);
+    notifyListeners();
+  }
 }

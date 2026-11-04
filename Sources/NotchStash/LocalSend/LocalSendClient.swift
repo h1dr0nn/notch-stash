@@ -38,6 +38,35 @@ enum LocalSendPrepareResult: Sendable {
 /// HTTP client side of LocalSend v2. Peers use self-signed certificates, so server trust is accepted as is.
 final class LocalSendClient: NSObject, URLSessionDelegate, @unchecked Sendable {
     private lazy var session = URLSession(configuration: .ephemeral, delegate: self, delegateQueue: nil)
+    private lazy var probeSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 1.5
+        configuration.httpMaximumConnectionsPerHost = 1
+        return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+    }()
+
+    /// Asks `ip` directly whether it runs Notch Stash or LocalSend (HTTPS first, then HTTP).
+    /// Registering also tells that device about this one.
+    func probe(_ ip: String, info: LocalSendDeviceInfo) async -> (LocalSendDeviceInfo, scheme: String)? {
+        for scheme in ["https", "http"] {
+            guard let url = URL(string: "\(scheme)://\(ip):53317/api/localsend/v2/register") else { continue }
+            var request = URLRequest(url: url, timeoutInterval: 1.5)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONEncoder().encode(info)
+            do {
+                let (data, response) = try await probeSession.data(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200,
+                      let peer = try? JSONDecoder().decode(LocalSendDeviceInfo.self, from: data) else { return nil }
+                return (peer, scheme)
+            } catch let error as URLError where [.cannotConnectToHost, .timedOut, .cannotFindHost].contains(error.code) {
+                return nil
+            } catch {
+                continue
+            }
+        }
+        return nil
+    }
 
     func register(to peer: LocalSendPeer, info: LocalSendDeviceInfo) async {
         guard let url = peer.baseURL?.appending(path: "register") else { return }

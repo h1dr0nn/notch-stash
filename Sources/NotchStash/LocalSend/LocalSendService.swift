@@ -19,24 +19,6 @@ enum LocalSendTransferState: Equatable {
     }
 }
 
-/// Files another device wants to send; the user accepts or declines.
-struct LocalSendIncomingRequest: Identifiable {
-    let id = UUID()
-    let sender: LocalSendDeviceInfo
-    let files: [LocalSendFileInfo]
-
-    var totalSize: Int64 { files.reduce(0) { $0 + $1.size } }
-
-    var headline: String {
-        "\(sender.alias) wants to send you \(files.count == 1 ? "a file" : "\(files.count) files")"
-    }
-
-    @MainActor var detail: String {
-        let folder = (AppSettings.shared.saveFolderPath as NSString).abbreviatingWithTildeInPath
-        return "\(ByteCountFormatter.string(fromByteCount: totalSize, countStyle: .file)) · to \(folder)"
-    }
-}
-
 /// LocalSend v2 on this Mac: discovery, receiving into the shelf, and sending shelf files to nearby devices.
 @MainActor
 final class LocalSendService: ObservableObject {
@@ -50,14 +32,15 @@ final class LocalSendService: ObservableObject {
 
     private let settings = AppSettings.shared
     private let store: ShelfStore
-    private let client = LocalSendClient()
+    let client = LocalSendClient()
     private let server = LocalSendServer()
     private var multicast: MulticastSocket?
     private var incomingDecision: CheckedContinuation<Bool, Never>?
     private var session: ReceiveSession?
     private var sendTasks: [String: Task<Void, Never>] = [:]
     private var cancellables: Set<AnyCancellable> = []
-    private let log = Logger(subsystem: "local.notch-stash", category: "localsend")
+    var isSweeping = false
+    let log = Logger(subsystem: "local.notch-stash", category: "localsend")
 
     /// An accepted incoming transfer.
     private struct ReceiveSession {
@@ -115,6 +98,7 @@ final class LocalSendService: ObservableObject {
         isRunning = true
         localNetwork.check()
         announce()
+        sweep()
     }
 
     private func stopNetworking() {
@@ -147,6 +131,7 @@ final class LocalSendService: ObservableObject {
         let staleBefore = Date().addingTimeInterval(-30)
         peers.removeAll { $0.lastSeen < staleBefore }
         announce()
+        sweep()
         for delay in [1.0, 3.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.announce() }
         }
@@ -172,7 +157,7 @@ final class LocalSendService: ObservableObject {
     }
 
     @discardableResult
-    private func upsert(_ info: LocalSendDeviceInfo, ip: String) -> LocalSendPeer {
+    func upsert(_ info: LocalSendDeviceInfo, ip: String) -> LocalSendPeer {
         let peer = LocalSendPeer(
             fingerprint: info.fingerprint,
             alias: info.alias,

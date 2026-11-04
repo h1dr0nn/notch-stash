@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.1 — 2026-11-04
+
+### Added
+- Windows: checks GitHub for updates (in Settings and the tray menu) and installs them, reopening the app afterwards.
+
+### Fixed
+- Nearby devices are found on networks that block multicast, such as many office and guest Wi-Fi networks: Notch Stash now also asks every address of the local network directly.
+- The hints no longer suggest the other side needs LocalSend; Notch Stash on both computers is enough.
+- Windows: Settings fits without scrolling, the scrollbar sits in the right margin instead of over the rows, and button labels are centred.
+
 ## 0.6.0 — 2026-11-04
 
 ### Added

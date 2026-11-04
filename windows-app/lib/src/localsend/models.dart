@@ -57,28 +57,29 @@ class DeviceInfo {
   }
 
   Map<String, Object?> toJson() => {
-        'alias': alias,
-        'version': version,
-        'deviceModel': deviceModel,
-        'deviceType': deviceType,
-        'fingerprint': fingerprint,
-        if (port != null) 'port': port,
-        if (protocol != null) 'protocol': protocol,
-        if (download != null) 'download': download,
-        if (announce != null) 'announce': announce,
-      };
+    'alias': alias,
+    'version': version,
+    'deviceModel': deviceModel,
+    'deviceType': deviceType,
+    'fingerprint': fingerprint,
+    if (port != null) 'port': port,
+    if (protocol != null) 'protocol': protocol,
+    if (download != null) 'download': download,
+    if (announce != null) 'announce': announce,
+  };
 
-  DeviceInfo copyWith({bool? announce}) => DeviceInfo(
-        alias: alias,
-        fingerprint: fingerprint,
-        version: version,
-        deviceModel: deviceModel,
-        deviceType: deviceType,
-        port: port,
-        protocol: protocol,
-        download: download,
-        announce: announce,
-      );
+  /// Copy with [announce] replaced (null clears it) and, when given, [port] and [protocol].
+  DeviceInfo copyWith({bool? announce, int? port, String? protocol}) => DeviceInfo(
+    alias: alias,
+    fingerprint: fingerprint,
+    version: version,
+    deviceModel: deviceModel,
+    deviceType: deviceType,
+    port: port ?? this.port,
+    protocol: protocol ?? this.protocol,
+    download: download,
+    announce: announce,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -94,8 +95,8 @@ class DeviceInfo {
       other.announce == announce;
 
   @override
-  int get hashCode => Object.hash(
-      alias, version, deviceModel, deviceType, fingerprint, port, protocol, download, announce);
+  int get hashCode =>
+      Object.hash(alias, version, deviceModel, deviceType, fingerprint, port, protocol, download, announce);
 }
 
 /// Metadata describing one file offered in a prepare-upload request.
@@ -134,13 +135,13 @@ class FileInfo {
   }
 
   Map<String, Object?> toJson() => {
-        'id': id,
-        'fileName': fileName,
-        'size': size,
-        'fileType': fileType,
-        if (sha256 != null) 'sha256': sha256,
-        if (preview != null) 'preview': preview,
-      };
+    'id': id,
+    'fileName': fileName,
+    'size': size,
+    'fileType': fileType,
+    if (sha256 != null) 'sha256': sha256,
+    if (preview != null) 'preview': preview,
+  };
 
   @override
   bool operator ==(Object other) =>
@@ -179,9 +180,9 @@ class PrepareUploadRequest {
   }
 
   Map<String, Object?> toJson() => {
-        'info': info.toJson(),
-        'files': files.map((key, value) => MapEntry(key, value.toJson())),
-      };
+    'info': info.toJson(),
+    'files': files.map((key, value) => MapEntry(key, value.toJson())),
+  };
 }
 
 /// Body of a prepare-upload response.
@@ -225,15 +226,15 @@ class Peer {
   });
 
   factory Peer.fromInfo(DeviceInfo info, String ip, DateTime seen) => Peer(
-        fingerprint: info.fingerprint,
-        alias: info.alias,
-        deviceModel: info.deviceModel,
-        deviceType: info.deviceType,
-        ip: ip,
-        port: info.port ?? LocalSendDefaults.port,
-        scheme: info.protocol == 'http' ? 'http' : 'https',
-        lastSeen: seen,
-      );
+    fingerprint: info.fingerprint,
+    alias: info.alias,
+    deviceModel: info.deviceModel,
+    deviceType: info.deviceType,
+    ip: ip,
+    port: info.port ?? LocalSendDefaults.port,
+    scheme: info.protocol == 'http' ? 'http' : 'https',
+    lastSeen: seen,
+  );
 
   final String fingerprint;
   final String alias;
@@ -246,13 +247,8 @@ class Peer {
 
   String get id => fingerprint;
 
-  Uri endpoint(String route, [Map<String, String>? query]) => Uri(
-        scheme: scheme,
-        host: ip,
-        port: port,
-        path: '${LocalSendDefaults.apiBase}/$route',
-        queryParameters: query,
-      );
+  Uri endpoint(String route, [Map<String, String>? query]) =>
+      Uri(scheme: scheme, host: ip, port: port, path: '${LocalSendDefaults.apiBase}/$route', queryParameters: query);
 
   /// "MacBook Pro · 192.168.1.20".
   String get subtitle => [if (deviceModel != null && deviceModel!.isNotEmpty) deviceModel!, ip].join(' · ');

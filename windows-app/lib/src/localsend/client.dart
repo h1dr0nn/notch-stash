@@ -97,6 +97,35 @@ class LocalSendClient {
   }
 
   final HttpClient _http = HttpClient();
+  final HttpClient _probeHttp = HttpClient()
+    ..badCertificateCallback = ((cert, host, port) => true)
+    ..connectionTimeout = const Duration(milliseconds: 1200);
+
+  /// Asks [ip] directly whether it runs Notch Stash or LocalSend (HTTPS first, then HTTP).
+  /// Registering also tells that device about this one. Returns its info with the scheme that answered.
+  Future<DeviceInfo?> probe(String ip, DeviceInfo info) async {
+    for (final scheme in const ['https', 'http']) {
+      try {
+        final uri = Uri.parse('$scheme://$ip:${LocalSendDefaults.port}/api/localsend/v2/register');
+        final request = await _probeHttp.postUrl(uri);
+        _writeJson(request, info.toJson());
+        final response = await request.close().timeout(const Duration(seconds: 2));
+        if (response.statusCode != 200) {
+          await response.drain<void>();
+          return null;
+        }
+        final peer = DeviceInfo.fromJson(jsonDecode(await response.transform(utf8.decoder).join()));
+        return peer?.copyWith(announce: null, port: LocalSendDefaults.port, protocol: scheme);
+      } on SocketException {
+        return null;
+      } on TimeoutException {
+        return null;
+      } on Object {
+        continue;
+      }
+    }
+    return null;
+  }
 
   Future<void> register(Peer peer, DeviceInfo info) async {
     try {
@@ -158,11 +187,13 @@ class LocalSendClient {
       request.headers.contentType = ContentType.binary;
       request.contentLength = length;
       var sent = 0;
-      await request.addStream(file.openRead().map((chunk) {
-        sent += chunk.length;
-        onProgress(sent);
-        return chunk;
-      }));
+      await request.addStream(
+        file.openRead().map((chunk) {
+          sent += chunk.length;
+          onProgress(sent);
+          return chunk;
+        }),
+      );
       final response = await request.close();
       await response.drain<void>();
       if (response.statusCode != 200) {
@@ -186,7 +217,10 @@ class LocalSendClient {
     }
   }
 
-  void close() => _http.close(force: true);
+  void close() {
+    _probeHttp.close(force: true);
+    _http.close(force: true);
+  }
 
   static void _writeJson(HttpClientRequest request, Object? json) {
     final bytes = utf8.encode(jsonEncode(json));

@@ -59,6 +59,8 @@ Root: HKCU; Subkey: "{#RunKey}"; ValueType: string; ValueName: "{#AppName}"; Val
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Open Notch Stash"; Flags: nowait postinstall skipifsilent
+; In-app updates run the installer silently; reopen the app afterwards.
+Filename: "{app}\{#AppExe}"; Flags: nowait; Check: WizardSilent
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

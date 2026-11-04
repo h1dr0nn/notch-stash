@@ -110,7 +110,7 @@ private struct SettingsView: View {
                 Section("Nearby Sharing") {
                     Toggle(isOn: $settings.nearbySharingEnabled) {
                         Text("Nearby Sharing")
-                        Text("Send and receive files with devices running LocalSend on the same network.")
+                        Text("Send and receive files with Notch Stash on other computers, or LocalSend on phones, on the same network.")
                     }
                     Group {
                         Toggle(isOn: $settings.receiveFiles) {

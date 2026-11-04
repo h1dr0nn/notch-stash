@@ -3,7 +3,7 @@ import Combine
 import NotchStashCore
 import SwiftUI
 
-/// Lists nearby LocalSend devices and sends the chosen files to one of them.
+/// Lists nearby Notch Stash and LocalSend devices and sends the chosen files to one of them.
 private struct SendView: View {
     @ObservedObject var service: LocalSendService
     @ObservedObject var localNetwork: LocalNetworkPermission
@@ -50,7 +50,10 @@ private struct SendView: View {
         } else if service.peers.isEmpty {
             VStack(spacing: 10) {
                 ProgressView().controlSize(.small)
-                hint("Looking for devices…", "Open LocalSend on the other device and keep both on the same network.")
+                hint(
+                    "Looking for devices…",
+                    "Open Notch Stash on the other computer, or LocalSend on a phone, and keep both on the same network."
+                )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {

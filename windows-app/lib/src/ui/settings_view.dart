@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../app_controller.dart';
 import '../core/shortcut.dart';
+import '../updater.dart';
 import 'common.dart';
 import 'theme.dart';
 
@@ -18,102 +19,149 @@ class SettingsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([app, app.settings, app.localSend]),
+      listenable: Listenable.merge([app, app.settings, app.localSend, app.updater]),
       builder: (context, _) {
         final settings = app.settings;
+        // The list runs to the window edge so its scrollbar sits in the right margin, not over the rows.
         return Padding(
-          padding: const EdgeInsets.fromLTRB(18, 12, 14, 12),
+          padding: const EdgeInsets.fromLTRB(18, 12, 0, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              PanelHeader(title: 'Settings', onDragStart: app.window.startDragging, onClose: app.hide),
+              Padding(
+                padding: const EdgeInsets.only(right: 14),
+                child: PanelHeader(title: 'Settings', onDragStart: app.window.startDragging, onClose: app.hide),
+              ),
               const SizedBox(height: 8),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(right: 4),
-                  children: [
-                    const _SectionTitle('Shortcut'),
-                    _Row(
-                      title: 'Show Shelf',
-                      detail: app.hotkeyFailed
-                          ? 'Windows did not accept this shortcut; another app may use it. Pick a different one.'
-                          : 'Shows or hides the shelf next to the pointer. Click, then press keys with Ctrl, Alt, Shift or Win.',
-                      detailColor: app.hotkeyFailed ? ShelfColors.danger : null,
-                      trailing: ShortcutRecorder(
-                        shortcut: settings.shortcut,
-                        onRecordingChanged: (recording) =>
-                            unawaited(recording ? app.pauseHotkey() : app.resumeHotkey()),
-                        onRecorded: (shortcut) => unawaited(app.setShortcut(shortcut)),
-                      ),
-                    ),
-                    const _SectionTitle('General'),
-                    _Row(
-                      title: 'Start with Windows',
-                      detail: 'Opens Notch Stash in the notification area when you sign in.',
-                      trailing: Switch(
-                        value: app.startWithWindows,
-                        onChanged: (value) => unawaited(app.setStartWithWindows(value)),
-                      ),
-                    ),
-                    const _SectionTitle('Nearby Sharing'),
-                    _Row(
-                      title: 'Nearby Sharing',
-                      detail: 'Send and receive files with devices running LocalSend on the same network.',
-                      trailing: Switch(
-                        value: settings.nearbySharingEnabled,
-                        onChanged: (value) => unawaited(app.setNearbySharing(value)),
-                      ),
-                    ),
-                    if (settings.nearbySharingEnabled) ...[
+                child: Scrollbar(
+                  child: ListView(
+                    primary: true,
+                    padding: const EdgeInsets.only(right: 18),
+                    children: [
+                      const _SectionTitle('Shortcut'),
                       _Row(
-                        title: 'Receive Files',
-                        detail: 'Other devices can send files to this PC after you accept them.',
-                        trailing: Switch(
-                          value: settings.receiveFiles,
-                          onChanged: (value) => unawaited(settings.setReceiveFiles(value)),
+                        title: 'Show Shelf',
+                        detail: app.hotkeyFailed
+                            ? 'Windows did not accept this shortcut; another app may use it. Pick a different one.'
+                            : 'Shows or hides the shelf next to the pointer. Click, then press keys with Ctrl, Alt, Shift or Win.',
+                        detailColor: app.hotkeyFailed ? ShelfColors.danger : null,
+                        trailing: ShortcutRecorder(
+                          shortcut: settings.shortcut,
+                          onRecordingChanged: (recording) =>
+                              unawaited(recording ? app.pauseHotkey() : app.resumeHotkey()),
+                          onRecorded: (shortcut) => unawaited(app.setShortcut(shortcut)),
                         ),
                       ),
+                      const _SectionTitle('General'),
                       _Row(
-                        title: 'Device Name',
-                        detail: 'How this PC appears on other devices.',
-                        trailing: SizedBox(
-                          width: 170,
-                          child: _DeviceNameField(
-                            initial: settings.deviceName,
-                            onSubmitted: (value) => unawaited(app.setDeviceName(value)),
+                        title: 'Start with Windows',
+                        detail: 'Opens Notch Stash in the notification area when you sign in.',
+                        trailing: Switch(
+                          value: app.startWithWindows,
+                          onChanged: (value) => unawaited(app.setStartWithWindows(value)),
+                        ),
+                      ),
+                      const _SectionTitle('Nearby Sharing'),
+                      _Row(
+                        title: 'Nearby Sharing',
+                        detail: 'Send and receive files with Notch Stash on other computers, or LocalSend on phones, on the same network.',
+                        trailing: Switch(
+                          value: settings.nearbySharingEnabled,
+                          onChanged: (value) => unawaited(app.setNearbySharing(value)),
+                        ),
+                      ),
+                      if (settings.nearbySharingEnabled) ...[
+                        _Row(
+                          title: 'Receive Files',
+                          detail: 'Other devices can send files to this PC after you accept them.',
+                          trailing: Switch(
+                            value: settings.receiveFiles,
+                            onChanged: (value) => unawaited(settings.setReceiveFiles(value)),
                           ),
                         ),
+                        _Row(
+                          title: 'Device Name',
+                          detail: 'How this PC appears on other devices.',
+                          trailing: SizedBox(
+                            width: 170,
+                            child: _DeviceNameField(
+                              initial: settings.deviceName,
+                              onSubmitted: (value) => unawaited(app.setDeviceName(value)),
+                            ),
+                          ),
+                        ),
+                        _Row(
+                          title: 'Save To',
+                          detail: settings.saveFolder,
+                          detailMaxLines: 2,
+                          trailing: OutlinedButton(
+                            onPressed: () => unawaited(_chooseFolder()),
+                            child: const Text('Choose…'),
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2, bottom: 8),
+                          child: Text(
+                            'Received files are saved here and added to the shelf.',
+                            style: TextStyle(fontSize: 11, color: ShelfColors.secondaryText),
+                          ),
+                        ),
+                      ],
+                      const _SectionTitle('Updates'),
+                      _Row(
+                        title: 'Check for Updates Automatically',
+                        detail: 'Looks for a new version on GitHub once a day.',
+                        trailing: Switch(
+                          value: settings.checkForUpdates,
+                          onChanged: (value) => unawaited(settings.setCheckForUpdates(value)),
+                        ),
                       ),
                       _Row(
-                        title: 'Save To',
-                        detail: settings.saveFolder,
-                        detailMaxLines: 2,
-                        trailing: OutlinedButton(
-                          onPressed: () => unawaited(_chooseFolder()),
-                          child: const Text('Choose…'),
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.only(top: 2, bottom: 8),
-                        child: Text(
-                          'Received files are saved here and added to the shelf.',
-                          style: TextStyle(fontSize: 11, color: ShelfColors.secondaryText),
-                        ),
+                        title: 'Version ${app.version}',
+                        detail: _updateStatus,
+                        detailColor: app.updater.status == UpdateStatus.failed ? ShelfColors.danger : null,
+                        trailing: _updateControl,
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const Divider(height: 16),
-              Text(
-                'Version ${app.version}',
-                style: const TextStyle(fontSize: 11, color: ShelfColors.secondaryText),
               ),
             ],
           ),
         );
       },
     );
+  }
+
+  String get _updateStatus {
+    final updater = app.updater;
+    return switch (updater.status) {
+      UpdateStatus.idle => 'Not checked yet.',
+      UpdateStatus.checking => 'Checking…',
+      UpdateStatus.upToDate => 'Notch Stash is up to date.',
+      UpdateStatus.available => 'Version ${updater.available?.version} is available.',
+      UpdateStatus.downloading => 'Downloading the update…',
+      UpdateStatus.installing => 'Installing. Notch Stash will reopen.',
+      UpdateStatus.failed => updater.error,
+    };
+  }
+
+  Widget get _updateControl {
+    final updater = app.updater;
+    switch (updater.status) {
+      case UpdateStatus.available:
+        return FilledButton(onPressed: () => unawaited(updater.install()), child: const Text('Update and Relaunch'));
+      case UpdateStatus.downloading:
+        return SizedBox(width: 110, child: LinearProgressIndicator(value: updater.progress));
+      case UpdateStatus.checking:
+      case UpdateStatus.installing:
+        return const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2));
+      case UpdateStatus.idle:
+      case UpdateStatus.upToDate:
+      case UpdateStatus.failed:
+        return OutlinedButton(onPressed: () => unawaited(updater.check()), child: const Text('Check Now'));
+    }
   }
 
   Future<void> _chooseFolder() async {

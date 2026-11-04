@@ -11,7 +11,7 @@ enum WindowMode {
   shelf(Size(380, 190)),
   send(Size(420, 400)),
   incoming(Size(360, 340)),
-  settings(Size(480, 600));
+  settings(Size(480, 780));
 
   const WindowMode(this.size);
   final Size size;
@@ -64,11 +64,7 @@ class WindowHost {
     if (keepPosition && window.isVisible) {
       final current = window.bounds.toRect();
       final currentArea = workAreaFor(current.center, areas) ?? area;
-      origin = shelfOrigin(
-        cursor: Offset(current.center.dx, current.top - 16),
-        workArea: currentArea,
-        size: size,
-      );
+      origin = shelfOrigin(cursor: Offset(current.center.dx, current.top - 16), workArea: currentArea, size: size);
     } else if (mode == WindowMode.shelf) {
       origin = shelfOrigin(cursor: cursor, workArea: area, size: size);
     } else {

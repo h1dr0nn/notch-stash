@@ -70,7 +70,7 @@ class SendView extends StatelessWidget {
       return const HintMessage(
         leading: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
         title: 'Looking for devices…',
-        detail: 'Open LocalSend on the other device and keep both on the same network. '
+        detail: 'Open Notch Stash on the other computer, or LocalSend on a phone, and keep both on the same network. '
             'If nothing shows up, allow Notch Stash through Windows Firewall on private networks.',
       );
     }

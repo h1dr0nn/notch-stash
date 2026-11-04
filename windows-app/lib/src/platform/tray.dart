@@ -10,12 +10,16 @@ class AppTray {
     required this.onSettings,
     required this.onQuit,
     required this.isShelfVisible,
+    required this.availableUpdate,
   });
 
   final VoidCallback onToggleShelf;
   final VoidCallback onSettings;
   final VoidCallback onQuit;
   final bool Function() isShelfVisible;
+
+  /// Version of a newer release, shown as a menu item that opens Settings.
+  final String? Function() availableUpdate;
 
   native.TrayIcon? _icon;
   native.Menu? _menu;
@@ -44,7 +48,9 @@ class AppTray {
   void _openMenu() {
     final icon = _icon;
     if (icon == null) return;
+    final update = availableUpdate();
     final menu = NativeMenus.build([
+      if (update != null) ...[NativeMenuEntry('Update to $update…', onSettings), const NativeMenuEntry.separator()],
       NativeMenuEntry(isShelfVisible() ? 'Hide Shelf' : 'Show Shelf', onToggleShelf),
       const NativeMenuEntry.separator(),
       NativeMenuEntry('Settings…', onSettings),

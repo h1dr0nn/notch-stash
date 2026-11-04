@@ -16,11 +16,10 @@ class ShelfColors {
   static const danger = Color(0xFFFF453A);
 }
 
+const _buttonText = TextStyle(fontSize: 13, height: 1.2, leadingDistribution: TextLeadingDistribution.even);
+
 ThemeData buildTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: ShelfColors.accent,
-    brightness: Brightness.dark,
-  ).copyWith(
+  final scheme = ColorScheme.fromSeed(seedColor: ShelfColors.accent, brightness: Brightness.dark).copyWith(
     primary: ShelfColors.accent,
     onPrimary: Colors.white,
     surface: ShelfColors.background,
@@ -40,6 +39,21 @@ ThemeData buildTheme() {
         textStyle: const TextStyle(fontSize: 12),
         minimumSize: const Size(0, 26),
         padding: const EdgeInsets.symmetric(horizontal: 8),
+      ),
+    ),
+    // Segoe UI has a deep descender; an explicit line height with even leading keeps button labels centred.
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        textStyle: _buttonText,
+        minimumSize: const Size(0, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        textStyle: _buttonText,
+        minimumSize: const Size(0, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
       ),
     ),
     switchTheme: SwitchThemeData(

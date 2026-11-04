@@ -13,6 +13,7 @@ import 'platform/startup.dart';
 import 'platform/tray.dart';
 import 'platform/window_host.dart';
 import 'settings.dart';
+import 'updater.dart';
 
 /// Ties the shelf, the window, the tray, the hotkey and nearby sharing together.
 class AppController extends ChangeNotifier {
@@ -26,7 +27,9 @@ class AppController extends ChangeNotifier {
       onSettings: openSettings,
       onQuit: () => unawaited(quit()),
       isShelfVisible: () => _mode == WindowMode.shelf && window.isVisible,
+      availableUpdate: () => updater.available?.version.toString(),
     );
+    updater = Updater(currentVersion: version, isEnabled: () => settings.checkForUpdates, onInstallerStarted: quit);
   }
 
   final AppSettings settings;
@@ -36,6 +39,7 @@ class AppController extends ChangeNotifier {
   late final WindowHost window;
   late final GlobalHotkey hotkey;
   late final AppTray tray;
+  late final Updater updater;
   final NativeMenus menus = NativeMenus();
 
   WindowMode _mode = WindowMode.hidden;
@@ -62,6 +66,7 @@ class AppController extends ChangeNotifier {
     localSend.addListener(_onLocalSendChanged);
     await localSend.applySettings();
     _pruneTimer = Timer.periodic(const Duration(seconds: 2), (_) => _prune());
+    updater.startAutomaticChecks();
     if (showSettings) openSettings();
     notifyListeners();
   }
