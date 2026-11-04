@@ -83,8 +83,9 @@ final class ShelfCoordinator {
 
     /// The notch shelf stays on the old Space and no mouse events tell us, so start over on the new one.
     private func activeSpaceChanged() {
-        notchControllers.forEach { $0.closeForSpaceChange() }
-        mouseMoved(to: NSEvent.mouseLocation)
+        let pointer = NSEvent.mouseLocation
+        notchControllers.forEach { $0.spaceChanged(pointer: pointer) }
+        mouseMoved(to: pointer)
     }
 
     func closeAll() {

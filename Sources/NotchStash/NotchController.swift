@@ -137,10 +137,13 @@ final class NotchController {
 
     /// The user switched Spaces, so no mouse events say the pointer left: bring the shelf to the new Space
     /// and fold it away there.
-    func closeForSpaceChange() {
+    /// Keeps it open without a flicker when the pointer is still over it.
+    func spaceChanged(pointer: CGPoint) {
         guard isOpen else { return }
         panel.orderFrontRegardless()
-        close("space changed")
+        if !shelfRect.insetBy(dx: -20, dy: -20).contains(pointer) {
+            close("space changed")
+        }
     }
 
     func tearDown() {
