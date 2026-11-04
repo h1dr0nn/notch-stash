@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.6 — 2026-11-04
+
+### Fixed
+- Windows: switching to the shelf from another app no longer flashes the standard window border and title bar. The earlier fix only covered part of it and could be bypassed by plugins.
+
 ## 0.6.5 — 2026-11-04
 
 ### Added

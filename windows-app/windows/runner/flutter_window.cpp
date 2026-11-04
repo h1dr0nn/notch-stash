@@ -46,6 +46,22 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // The window hides its title bar but keeps the frame styles so Windows still draws the shadow and
+  // rounded corners. On activation changes (clicking in from another app, a context menu opening) and
+  // on repaints, the default handling would draw the classic caption and border over the content for a
+  // moment. Nothing visible lives in the non-client area, so those paints are skipped here, before
+  // Flutter or any plugin sees the message. 0x00AE / 0x00AF are the theme's undocumented
+  // WM_NCUAHDRAWCAPTION / WM_NCUAHDRAWFRAME.
+  switch (message) {
+    case WM_NCACTIVATE:
+      // lParam -1 keeps the activation handling but skips the repaint.
+      return DefWindowProc(hwnd, message, wparam, -1);
+    case WM_NCPAINT:
+    case 0x00AE:
+    case 0x00AF:
+      return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
@@ -60,11 +76,6 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;
-    case WM_NCACTIVATE:
-      // The window is frameless but keeps its frame styles; when it loses activation (for example
-      // when a context menu opens) Windows would repaint the standard border for a moment.
-      // lParam -1 keeps the activation change without repainting the non-client area.
-      return DefWindowProc(hwnd, message, wparam, -1);
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);
