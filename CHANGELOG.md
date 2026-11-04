@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.7 — 2026-11-04
+
+### Fixed
+- Windows: the standard window border and title bar no longer flash over the shelf when you switch to it from another app or right-click a file. The window's frame is now drawn by Windows' compositor, as in other apps, instead of being hidden and painted over.
+
 ## 0.6.6 — 2026-11-04
 
 ### Changed

@@ -1,8 +1,21 @@
 #include "flutter_window.h"
 
+#include <dwmapi.h>
+
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+
+namespace {
+
+// The compositor draws a window's shadow only while its frame reaches into the client area, which
+// here is the whole window; one pixel at the top is enough and stays under the content.
+void ExtendFrameForShadow(HWND hwnd) {
+  const MARGINS margins = {0, 0, 1, 0};
+  DwmExtendFrameIntoClientArea(hwnd, &margins);
+}
+
+}  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -26,6 +39,7 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+  ExtendFrameForShadow(GetHandle());
 
   // Notch Stash lives in the tray: the window stays hidden until the Dart side
   // shows the shelf or Settings, so the first frame does not show it.
@@ -46,20 +60,18 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
-  // The window hides its title bar but keeps the frame styles so Windows still draws the shadow and
-  // rounded corners. On activation changes (clicking in from another app, a context menu opening) and
-  // on repaints, the default handling would draw the classic caption and border over the content for a
-  // moment. Nothing visible lives in the non-client area, so those paints are skipped here, before
-  // Flutter or any plugin sees the message. 0x00AE / 0x00AF are the theme's undocumented
-  // WM_NCUAHDRAWCAPTION / WM_NCUAHDRAWFRAME.
+  // The window has no title bar or border of its own, yet keeps the caption styles and lets the
+  // desktop compositor draw its frame: that frame brings the shadow and rounded corners and is never
+  // painted over the content. Here the content takes the whole window, so only the shadow and the
+  // thin Windows 11 border show. (A frameless window without the compositor, window_manager's
+  // setFrameless, gets the classic frame painted over it on every activation change instead.)
   switch (message) {
-    case WM_NCACTIVATE:
-      // lParam -1 keeps the activation handling but skips the repaint.
-      return DefWindowProc(hwnd, message, wparam, -1);
-    case WM_NCPAINT:
-    case 0x00AE:
-    case 0x00AF:
+    case WM_NCCALCSIZE:
+      // The client area keeps the whole window rectangle.
       return 0;
+    case WM_DWMCOMPOSITIONCHANGED:
+      ExtendFrameForShadow(hwnd);
+      break;
   }
 
   // Give Flutter, including plugins, an opportunity to handle window messages.

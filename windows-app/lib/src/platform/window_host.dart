@@ -37,7 +37,8 @@ class WindowHost {
       ..isMinimizable = false
       ..isFullScreenable = false
       ..hasShadow = true;
-    window.setFrameless(true);
+    // No setFrameless: the native runner gives the content the whole window and keeps the
+    // compositor's frame, which setFrameless would turn off (see flutter_window.cpp).
     if (Window.isCornerPreferenceSupported()) {
       window.setCornerPreference(WindowCornerPreference.round);
     }
