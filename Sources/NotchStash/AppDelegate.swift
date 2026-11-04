@@ -84,23 +84,89 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Shown while the settings window puts the app in the Dock.
     private func setUpMainMenu() {
-        let appMenu = NSMenu()
+        let appMenu = NSMenu(title: "Notch Stash")
         let about = #selector(NSApplication.orderFrontStandardAboutPanel(_:))
         appMenu.addItem(withTitle: "About Notch Stash", action: about, keyEquivalent: "")
+        appMenu.addItem(menuItem("Check for Updates…", #selector(checkForUpdates)))
         appMenu.addItem(.separator())
         appMenu.addItem(menuItem("Settings…", #selector(openSettings), key: ","))
         appMenu.addItem(.separator())
+        let services = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
+        let servicesMenu = NSMenu(title: "Services")
+        services.submenu = servicesMenu
+        NSApp.servicesMenu = servicesMenu
+        appMenu.addItem(services)
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide Notch Stash", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hideOthers = appMenu.addItem(
+            withTitle: "Hide Others",
+            action: #selector(NSApplication.hideOtherApplications(_:)),
+            keyEquivalent: "h"
+        )
+        hideOthers.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
         appMenu.addItem(menuItem("Quit Notch Stash", #selector(quit), key: "q"))
-        let windowMenu = NSMenu(title: "Window")
-        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+
         let mainMenu = NSMenu()
-        for submenu in [appMenu, windowMenu] {
-            let item = NSMenuItem()
+        for submenu in [appMenu, Self.editMenu(), shelfMenu(), Self.windowMenu(), helpMenu()] {
+            let item = NSMenuItem(title: submenu.title, action: nil, keyEquivalent: "")
             item.submenu = submenu
             mainMenu.addItem(item)
         }
         NSApp.mainMenu = mainMenu
+    }
+
+    private static func editMenu() -> NSMenu {
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        return editMenu
+    }
+
+    private func shelfMenu() -> NSMenu {
+        let shelfMenu = NSMenu(title: "Shelf")
+        shelfMenu.addItem(menuItem("Show Shelf", #selector(toggleShelf)))
+        shelfMenu.addItem(menuItem("Clear Shelf", #selector(clearShelf)))
+        return shelfMenu
+    }
+
+    private static func windowMenu() -> NSMenu {
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowMenu.addItem(.separator())
+        windowMenu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
+        NSApp.windowsMenu = windowMenu
+        return windowMenu
+    }
+
+    private func helpMenu() -> NSMenu {
+        let helpMenu = NSMenu(title: "Help")
+        helpMenu.addItem(menuItem("Notch Stash Help", #selector(openHelp)))
+        helpMenu.addItem(menuItem("Report an Issue", #selector(reportIssue)))
+        NSApp.helpMenu = helpMenu
+        return helpMenu
+    }
+
+    @objc private func checkForUpdates() {
+        settingsWindow.show(tab: .updates)
+        Task { await updater.check() }
+    }
+
+    @objc private func openHelp() {
+        if let url = URL(string: "https://github.com/h1dr0nn/notch-stash#readme") { NSWorkspace.shared.open(url) }
+    }
+
+    @objc private func reportIssue() {
+        if let url = URL(string: "https://github.com/h1dr0nn/notch-stash/issues/new") { NSWorkspace.shared.open(url) }
     }
 
     private func setUpStatusItem() {

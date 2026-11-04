@@ -291,41 +291,47 @@ final class SettingsWindowController {
         self.updater = updater
     }
 
-    func show() {
+    private func makeWindow() -> NSWindow {
+        let tabs = NSTabViewController()
+        tabs.tabStyle = .toolbar
+        tabs.canPropagateSelectedChildViewControllerTitle = false
+        let proposal = NSSize(width: 460, height: 10_000)
+        var pages: [NSViewController] = []
+        var height: CGFloat = 0
+        for tab in SettingsTab.allCases {
+            let page = SettingsView(
+                tab: tab,
+                settings: .shared,
+                isShortcutActive: isShortcutActive,
+                onRecordingChange: onRecordingChange,
+                localNetwork: localNetwork,
+                updater: updater
+            )
+            height = max(height, NSHostingController(rootView: page).sizeThatFits(in: proposal).height)
+            let hosting = NSHostingController(rootView: page.frame(maxHeight: .infinity, alignment: .top))
+            hosting.sizingOptions = []
+            pages.append(hosting)
+            let item = NSTabViewItem(viewController: hosting)
+            item.label = tab.title
+            item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
+            tabs.addTabViewItem(item)
+        }
+        // One size for every tab, the tallest one's, so switching tabs never resizes the window.
+        let size = NSSize(width: 460, height: height)
+        pages.forEach { $0.preferredContentSize = size }
+        let window = NSWindow(contentViewController: tabs)
+        window.setContentSize(size)
+        window.title = "Notch Stash"
+        window.styleMask = [.titled, .closable]
+        window.toolbarStyle = .preference
+        window.isReleasedWhenClosed = false
+        window.center()
+        return window
+    }
+
+    func show(tab: SettingsTab? = nil) {
         if window == nil {
-            let tabs = NSTabViewController()
-            tabs.tabStyle = .toolbar
-            let proposal = NSSize(width: 460, height: 10_000)
-            var pages: [NSViewController] = []
-            var height: CGFloat = 0
-            for tab in SettingsTab.allCases {
-                let page = SettingsView(
-                    tab: tab,
-                    settings: .shared,
-                    isShortcutActive: isShortcutActive,
-                    onRecordingChange: onRecordingChange,
-                    localNetwork: localNetwork,
-                    updater: updater
-                )
-                height = max(height, NSHostingController(rootView: page).sizeThatFits(in: proposal).height)
-                let hosting = NSHostingController(rootView: page.frame(maxHeight: .infinity, alignment: .top))
-                hosting.sizingOptions = []
-                hosting.title = tab.title
-                pages.append(hosting)
-                let item = NSTabViewItem(viewController: hosting)
-                item.label = tab.title
-                item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
-                tabs.addTabViewItem(item)
-            }
-            // One size for every tab, the tallest one's, so switching tabs never resizes the window.
-            let size = NSSize(width: 460, height: height)
-            pages.forEach { $0.preferredContentSize = size }
-            let window = NSWindow(contentViewController: tabs)
-            window.setContentSize(size)
-            window.styleMask = [.titled, .closable]
-            window.toolbarStyle = .preference
-            window.isReleasedWhenClosed = false
-            window.center()
+            let window = makeWindow()
             self.window = window
             closeObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
@@ -338,6 +344,10 @@ final class SettingsWindowController {
         localNetwork.check()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
+        if let tab, let index = SettingsTab.allCases.firstIndex(of: tab),
+           let tabs = window?.contentViewController as? NSTabViewController {
+            tabs.selectedTabViewItemIndex = index
+        }
         window?.makeKeyAndOrderFront(nil)
     }
 }
