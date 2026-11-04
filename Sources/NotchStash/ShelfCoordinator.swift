@@ -11,6 +11,7 @@ final class ShelfCoordinator {
     private var notchControllers: [NotchController] = []
     private var notchLayout: [CGRect] = []
     private var screenObserver: Any?
+    private var spaceObserver: Any?
     private lazy var floating = FloatingController(store: store)
     private var mouseMonitors: [Any] = []
     private var dragChangeCountAtMouseDown = NSPasteboard(name: .drag).changeCount
@@ -32,6 +33,13 @@ final class ShelfCoordinator {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.applySettings() }
             .store(in: &settingsCancellables)
+        spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.activeSpaceChanged() }
+        }
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -71,6 +79,12 @@ final class ShelfCoordinator {
 
     func showFloating() {
         floating.show(at: NSEvent.mouseLocation)
+    }
+
+    /// The notch shelf stays on the old Space and no mouse events tell us, so start over on the new one.
+    private func activeSpaceChanged() {
+        notchControllers.forEach { $0.reset() }
+        mouseMoved(to: NSEvent.mouseLocation)
     }
 
     func closeAll() {

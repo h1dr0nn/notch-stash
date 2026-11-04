@@ -135,6 +135,21 @@ final class NotchController {
         }
     }
 
+    /// Closes at once without animation, e.g. when the user switches Spaces and no mouse events arrive.
+    func reset() {
+        guard isOpen || model.showsShape else { return }
+        log.notice("reset")
+        openReason = nil
+        layoutGeneration += 1
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            model.isOpen = false
+            model.showsShape = false
+        }
+        panel.orderOut(nil)
+    }
+
     func tearDown() {
         panel.orderOut(nil)
         panel.close()
