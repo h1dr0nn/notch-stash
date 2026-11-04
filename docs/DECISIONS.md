@@ -31,3 +31,7 @@
 - **Key combinations through Carbon `RegisterEventHotKey`.** Still the only public API for global key combinations, and it needs no privacy permission, unlike the double-tap listener.
 - **Dock icon only while Settings is open.** The app switches to a regular app when the window opens and back to a menu bar app when it closes.
 - **Automatic menu symbols hidden.** macOS 27 adds a gear to Settings…; `preferredImageVisibility` is set through the runtime so builds on older SDKs keep working.
+- **Nearby sharing through the LocalSend v2 protocol.** Interoperates with the LocalSend apps on iOS, Android, Windows and Linux; implemented from the public spec in Swift rather than embedding the Flutter app.
+- **LocalSend server speaks HTTP, the client accepts any HTTPS certificate.** Peers announce their scheme; LocalSend peers use self-signed certificates, so trust is not checked. Serving HTTPS would need a generated identity in the keychain; plain HTTP on the local network is accepted for now.
+- **Local Network permission via a Bonjour browse.** Raw multicast sockets are dropped silently without the permission and never trigger the prompt; an `NWBrowser` does both, and its policy-denied error tells the app to show the System Settings shortcut.
+- **One incoming session at a time.** Further requests get 409 until the current one finishes or is cancelled; an unanswered prompt declines after 60 seconds.

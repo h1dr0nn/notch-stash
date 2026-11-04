@@ -47,6 +47,16 @@ struct ShelfContentView: View {
     private func actions(compact: Bool) -> some View {
         HStack(spacing: compact ? 12 : 10) {
             if !store.isEmpty {
+                Button { ShelfActions.shared.send(store.items.map(\.url)) } label: {
+                    if compact {
+                        Image(systemName: "paperplane").font(.system(size: 13))
+                    } else {
+                        Text("Send All…").font(.caption)
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Send all files to a nearby device")
                 dragAll(compact: compact)
                 Button { store.removeAll() } label: {
                     if compact {
@@ -145,6 +155,18 @@ private struct FileTile: View {
     let onPreview: () -> Void
     let onRemove: () -> Void
 
+    private func menuItems() -> [NSMenuItem] {
+        let url = item.url
+        return [
+            ClosureMenuItem("Quick Look", handler: onPreview),
+            ClosureMenuItem("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) },
+            .separator(),
+            ClosureMenuItem("Send to Device…") { ShelfActions.shared.send([url]) },
+            .separator(),
+            ClosureMenuItem("Remove", handler: onRemove)
+        ]
+    }
+
     var body: some View {
         VStack(spacing: 4) {
             Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
@@ -159,7 +181,7 @@ private struct FileTile: View {
         }
         .frame(width: 78, height: 86)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.06)))
-        .overlay(FileDragSource(urls: [item.url], onClick: onPreview, onDelivered: onRemove))
+        .overlay(FileDragSource(urls: [item.url], onClick: onPreview, onDelivered: onRemove, menuItems: menuItems))
         .overlay(alignment: .topTrailing) {
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")

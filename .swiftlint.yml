@@ -3,4 +3,4 @@ included:
   - Tests
 line_length: 140
 identifier_name:
-  excluded: [id, x, y, dx, dy]
+  excluded: [id, x, y, dx, dy, ip]

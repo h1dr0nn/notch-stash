@@ -30,6 +30,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSBonjourServices</key><array><string>_notchstash._tcp</string></array>
+    <key>NSLocalNetworkUsageDescription</key><string>Notch Stash finds nearby devices running LocalSend to send and receive files.</string>
 </dict>
 </plist>
 PLIST

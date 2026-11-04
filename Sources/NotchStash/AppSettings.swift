@@ -66,6 +66,12 @@ final class AppSettings: ObservableObject {
     }
     @Published var showMenuBarIcon: Bool { didSet { save(showMenuBarIcon, Key.showMenuBarIcon) } }
     @Published private(set) var openAtLogin: Bool
+    @Published var nearbySharingEnabled: Bool { didSet { save(nearbySharingEnabled, Key.nearbySharingEnabled) } }
+    @Published var receiveFiles: Bool { didSet { save(receiveFiles, Key.receiveFiles) } }
+    @Published var deviceName: String { didSet { save(deviceName, Key.deviceName) } }
+    @Published var saveFolderPath: String { didSet { save(saveFolderPath, Key.saveFolderPath) } }
+    /// Random LocalSend identity, kept so other devices recognise this Mac.
+    let localSendFingerprint: String
 
     private enum Key {
         static let notchEnabled = "notchEnabled"
@@ -75,6 +81,11 @@ final class AppSettings: ObservableObject {
         static let shortcutKind = "shortcutKind"
         static let keyCombo = "keyCombo"
         static let showMenuBarIcon = "showMenuBarIcon"
+        static let nearbySharingEnabled = "nearbySharingEnabled"
+        static let receiveFiles = "receiveFiles"
+        static let deviceName = "deviceName"
+        static let saveFolderPath = "saveFolderPath"
+        static let localSendFingerprint = "localSendFingerprint"
     }
 
     private let defaults = UserDefaults.standard
@@ -87,8 +98,15 @@ final class AppSettings: ObservableObject {
             Key.floatingEnabled: true,
             Key.hotkeyModifier: HotkeyModifier.control.rawValue,
             Key.shortcutKind: ShortcutKind.doubleTap.rawValue,
-            Key.showMenuBarIcon: true
+            Key.showMenuBarIcon: true,
+            Key.nearbySharingEnabled: true,
+            Key.receiveFiles: true,
+            Key.saveFolderPath: FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path
+                ?? NSHomeDirectory() + "/Downloads"
         ])
+        if defaults.string(forKey: Key.localSendFingerprint) == nil {
+            defaults.set(UUID().uuidString, forKey: Key.localSendFingerprint)
+        }
         notchEnabled = defaults.bool(forKey: Key.notchEnabled)
         openNotchOnHover = defaults.bool(forKey: Key.openNotchOnHover)
         floatingEnabled = defaults.bool(forKey: Key.floatingEnabled)
@@ -97,6 +115,11 @@ final class AppSettings: ObservableObject {
         keyCombo = defaults.data(forKey: Key.keyCombo).flatMap { try? JSONDecoder().decode(KeyCombo.self, from: $0) }
         showMenuBarIcon = defaults.bool(forKey: Key.showMenuBarIcon)
         openAtLogin = SMAppService.mainApp.status == .enabled
+        nearbySharingEnabled = defaults.bool(forKey: Key.nearbySharingEnabled)
+        receiveFiles = defaults.bool(forKey: Key.receiveFiles)
+        deviceName = defaults.string(forKey: Key.deviceName) ?? Host.current().localizedName ?? "Mac"
+        saveFolderPath = defaults.string(forKey: Key.saveFolderPath) ?? NSHomeDirectory() + "/Downloads"
+        localSendFingerprint = defaults.string(forKey: Key.localSendFingerprint) ?? UUID().uuidString
     }
 
     /// Human-readable shortcut, nil when a key combination is selected but not recorded yet.

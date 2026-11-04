@@ -6,6 +6,7 @@ private struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     let isShortcutActive: () -> Bool
     let onRecordingChange: (Bool) -> Void
+    @ObservedObject var localNetwork: LocalNetworkPermission
 
     var body: some View {
         Form {
@@ -70,6 +71,48 @@ private struct SettingsView: View {
             }
             .disabled(!settings.floatingEnabled)
 
+            Section("Nearby Sharing") {
+                Toggle(isOn: $settings.nearbySharingEnabled) {
+                    Text("Nearby Sharing")
+                    Text("Send and receive files with devices running LocalSend on the same network.")
+                }
+                Group {
+                    Toggle(isOn: $settings.receiveFiles) {
+                        Text("Receive Files")
+                        Text("Other devices can send files to this Mac after you accept them.")
+                    }
+                    LabeledContent {
+                        switch localNetwork.state {
+                        case .allowed:
+                            Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                        case .denied:
+                            Button("Open Privacy Settings") { LocalNetworkPermission.openPrivacySettings() }
+                        case .unknown:
+                            Text("Checking…").foregroundStyle(.secondary)
+                        }
+                    } label: {
+                        Text("Local Network")
+                        Text(localNetwork.state == .denied
+                            ? "Needed to find devices. Switch on Notch Stash in Local Network."
+                            : "Needed to find devices on your network.")
+                    }
+                    TextField("Device Name", text: $settings.deviceName)
+                    LabeledContent {
+                        HStack(spacing: 8) {
+                            Text((settings.saveFolderPath as NSString).abbreviatingWithTildeInPath)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .foregroundStyle(.secondary)
+                            Button("Choose…") { chooseSaveFolder() }
+                        }
+                    } label: {
+                        Text("Save To")
+                        Text("Received files are saved here and added to the shelf.")
+                    }
+                }
+                .disabled(!settings.nearbySharingEnabled)
+            }
+
             Section("General") {
                 Toggle(isOn: $settings.showMenuBarIcon) {
                     Text("Show Menu Bar Icon")
@@ -85,8 +128,23 @@ private struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollDisabled(true)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+extension SettingsView {
+    fileprivate func chooseSaveFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Choose"
+        panel.directoryURL = URL(fileURLWithPath: settings.saveFolderPath, isDirectory: true)
+        if panel.runModal() == .OK, let url = panel.url {
+            settings.saveFolderPath = url.path
+        }
     }
 }
 
@@ -150,10 +208,16 @@ final class SettingsWindowController {
     private var closeObserver: Any?
     private let isShortcutActive: () -> Bool
     private let onRecordingChange: (Bool) -> Void
+    private let localNetwork: LocalNetworkPermission
 
-    init(isShortcutActive: @escaping () -> Bool, onRecordingChange: @escaping (Bool) -> Void) {
+    init(
+        isShortcutActive: @escaping () -> Bool,
+        onRecordingChange: @escaping (Bool) -> Void,
+        localNetwork: LocalNetworkPermission
+    ) {
         self.isShortcutActive = isShortcutActive
         self.onRecordingChange = onRecordingChange
+        self.localNetwork = localNetwork
     }
 
     func show() {
@@ -161,7 +225,8 @@ final class SettingsWindowController {
             let hosting = NSHostingController(rootView: SettingsView(
                 settings: .shared,
                 isShortcutActive: isShortcutActive,
-                onRecordingChange: onRecordingChange
+                onRecordingChange: onRecordingChange,
+                localNetwork: localNetwork
             ))
             let window = NSWindow(contentViewController: hosting)
             window.title = "Notch Stash Settings"
@@ -177,6 +242,7 @@ final class SettingsWindowController {
                 MainActor.assumeIsolated { _ = NSApp.setActivationPolicy(.accessory) }
             }
         }
+        localNetwork.check()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)

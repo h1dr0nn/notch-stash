@@ -8,6 +8,14 @@ A tiny shelf for your MacBook notch. Drop files on it, switch windows, Spaces or
 - **Quick Look:** click a file to preview it.
 - **Lightweight:** lives in the menu bar, keeps references to your files instead of copying them.
 
+## Nearby sharing
+
+Notch Stash speaks the [LocalSend](https://localsend.org) protocol, so it can swap files with phones and computers running the free LocalSend app on the same network.
+
+- **Send:** right-click a file on the shelf and choose **Send to Device…**, or use **Send All…**. Pick a device; it gets a prompt to accept.
+- **Receive:** when a device sends you files, accept the prompt. Files are saved to Downloads (change it in Settings) and appear on the shelf.
+- The first time, macOS asks to allow **Local Network** access. If you declined, turn it on in **System Settings → Privacy & Security → Local Network**.
+
 ## Requirements
 
 - macOS 14 Sonoma or later

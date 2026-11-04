@@ -16,9 +16,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         onRecordingChange: { [weak self] recording in
             self?.isRecordingShortcut = recording
             self?.applyShortcut()
-        }
+        },
+        localNetwork: localSend.localNetwork
     )
     private var isRecordingShortcut = false
+    private lazy var localSend = LocalSendService(store: coordinator.store)
+    private lazy var sendWindow = SendWindowController(service: localSend)
+    private var incomingWindow: IncomingWindowController?
     private var statusItem: NSStatusItem?
     private var cancellables: Set<AnyCancellable> = []
     private var launchedAtLogin = false
@@ -30,6 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         coordinator.start()
+        localSend.start()
+        incomingWindow = IncomingWindowController(service: localSend)
+        ShelfActions.shared.send = { [weak self] urls in self?.sendWindow.show(urls) }
         setUpStatusItem()
         setUpMainMenu()
 

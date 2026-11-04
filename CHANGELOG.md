@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 — 2026-11-04
+
+### Added
+- Nearby sharing with LocalSend: send shelf files to phones and computers running LocalSend on the same network, and receive files from them straight into the shelf.
+- Right-click a file on the shelf for Quick Look, Show in Finder, Send to Device… and Remove; Send All… sends the whole shelf.
+- Send to Device window that finds nearby devices and shows approval, progress and result for each.
+- Incoming files prompt with Accept and Decline; accepted files are saved to a folder you choose (Downloads by default).
+- Settings: Nearby Sharing, Receive Files, Device Name, Save To, and the Local Network permission status with a shortcut to System Settings.
+
 ## 0.5.2 — 2026-11-04
 
 ### Fixed

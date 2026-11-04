@@ -6,10 +6,19 @@ final class FileDragSourceView: NSView, NSDraggingSource {
     var urls: [URL] = []
     var onClick: () -> Void = {}
     var onDragEnded: (_ delivered: Bool) -> Void = { _ in }
+    var menuItems: () -> [NSMenuItem] = { [] }
 
     private var mouseDownEvent: NSEvent?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let items = menuItems()
+        guard !items.isEmpty else { return nil }
+        let menu = NSMenu()
+        items.forEach(menu.addItem)
+        return menu
+    }
     override var mouseDownCanMoveWindow: Bool { false }
 
     override func mouseDown(with event: NSEvent) {
@@ -56,6 +65,7 @@ struct FileDragSource: NSViewRepresentable {
     let urls: [URL]
     let onClick: () -> Void
     let onDelivered: () -> Void
+    var menuItems: () -> [NSMenuItem] = { [] }
 
     func makeNSView(context: Context) -> FileDragSourceView {
         FileDragSourceView()
@@ -64,6 +74,7 @@ struct FileDragSource: NSViewRepresentable {
     func updateNSView(_ view: FileDragSourceView, context: Context) {
         view.urls = urls
         view.onClick = onClick
+        view.menuItems = menuItems
         view.onDragEnded = { delivered in
             if delivered { onDelivered() }
         }
