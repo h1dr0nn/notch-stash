@@ -2,6 +2,7 @@ import AppKit
 import NotchStashCore
 import OSLog
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// View state for the notch window.
 @MainActor
@@ -9,6 +10,8 @@ final class NotchModel: ObservableObject {
     @Published var isOpen = false
     @Published var showsShape = false
     @Published var isDropTargeted = false
+    @Published var incoming: LocalSendIncomingRequest?
+    var decideIncoming: (Bool) -> Void = { _ in }
     let notchSize: CGSize
     let openedSize: CGSize
 
@@ -31,7 +34,13 @@ private struct NotchRootView: View {
         ZStack(alignment: .top) {
             ZStack(alignment: .top) {
                 shape.fill(Color.black)
-                ShelfContentView(store: store, onClose: onClose, onPreview: onPreview, notchSize: model.notchSize)
+                Group {
+                    if let request = model.incoming {
+                        IncomingCard(request: request, notchSize: model.notchSize, decide: model.decideIncoming)
+                    } else {
+                        ShelfContentView(store: store, onClose: onClose, onPreview: onPreview, notchSize: model.notchSize)
+                    }
+                }
                     .padding([.horizontal, .bottom], 16)
                     .opacity(open ? 1 : 0)
                     .animation(open ? .easeOut(duration: 0.18).delay(0.1) : .easeIn(duration: 0.08), value: open)
@@ -48,10 +57,90 @@ private struct NotchRootView: View {
     }
 }
 
+/// Files offered by another device, shown in place of the shelf until the user answers.
+private struct IncomingCard: View {
+    let request: LocalSendIncomingRequest
+    let notchSize: CGSize
+    let decide: (Bool) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Text("From \(request.sender.alias)")
+                    .font(.headline)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Color.clear.frame(width: notchSize.width + 16)
+                Spacer(minLength: 0)
+                Text(request.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(height: notchSize.height)
+            .padding(.top, 6)
+            HStack(spacing: 14) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(request.files, id: \.id) { IncomingTile(file: $0) }
+                    }
+                }
+                VStack(spacing: 8) {
+                    pill("Accept", fill: Color.accentColor, text: .white) { decide(true) }
+                        .keyboardShortcut(.defaultAction)
+                    pill("Decline", fill: Color.white.opacity(0.14), text: .primary) { decide(false) }
+                        .keyboardShortcut(.cancelAction)
+                }
+                .frame(width: 104)
+            }
+            .frame(maxHeight: .infinity)
+        }
+    }
+
+    private func pill(_ title: String, fill: Color, text: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(text)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(fill))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// One offered file: its type icon and name, styled like a shelf tile.
+private struct IncomingTile: View {
+    let file: LocalSendFileInfo
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(nsImage: NSWorkspace.shared.icon(for: Self.type(of: file.fileName)))
+                .resizable()
+                .frame(width: 44, height: 44)
+            Text((file.fileName as NSString).lastPathComponent)
+                .font(.caption2)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .multilineTextAlignment(.center)
+                .frame(width: 72)
+        }
+        .frame(width: 78, height: 86)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.06)))
+        .help(file.fileName)
+    }
+
+    private static func type(of fileName: String) -> UTType {
+        UTType(filenameExtension: (fileName as NSString).pathExtension) ?? .data
+    }
+}
+
 /// Owns the window that sits on a notched screen: closed over the notch, opened as the shelf.
 @MainActor
 final class NotchController {
-    enum OpenReason { case hover, drag }
+    enum OpenReason { case hover, drag, incoming }
 
     static let animation = Animation.spring(response: 0.38, dampingFraction: 0.78)
     private static let shadowMargin: CGFloat = 24
@@ -64,7 +153,7 @@ final class NotchController {
     private(set) var openReason: OpenReason?
     var opensOnHover = true
     var isEnabled = true {
-        didSet { if !isEnabled { close("disabled") } }
+        didSet { if !isEnabled, openReason != .incoming { close("disabled") } }
     }
     private var openedFrame: CGRect
     private var layoutGeneration = 0
@@ -103,8 +192,8 @@ final class NotchController {
         panel.setFrame(openedFrame, display: false)
     }
 
-    func open(_ reason: OpenReason) {
-        guard isEnabled, !isOpen else { return }
+    func open(_ reason: OpenReason, force: Bool = false) {
+        guard isEnabled || force, !isOpen else { return }
         log.notice("open \(String(describing: reason), privacy: .public)")
         openReason = reason
         layoutGeneration += 1
@@ -141,7 +230,7 @@ final class NotchController {
     func spaceChanged(pointer: CGPoint) {
         guard isOpen else { return }
         panel.orderFrontRegardless()
-        if !shelfRect.insetBy(dx: -20, dy: -20).contains(pointer) {
+        if openReason != .incoming, !shelfRect.insetBy(dx: -20, dy: -20).contains(pointer) {
             close("space changed")
         }
     }
@@ -154,8 +243,30 @@ final class NotchController {
     func mouseMoved(to point: CGPoint) {
         if !isOpen {
             if opensOnHover, NSMouseInRect(point, notchRect, false) { open(.hover) }
-        } else if !shelfRect.insetBy(dx: -20, dy: -20).contains(point) {
+        } else if openReason != .incoming, !shelfRect.insetBy(dx: -20, dy: -20).contains(point) {
             close("mouse left")
+        }
+    }
+
+    /// Shows an incoming-files prompt in the shelf; it stays open until answered.
+    func showIncoming(_ request: LocalSendIncomingRequest, decide: @escaping (Bool) -> Void) {
+        model.decideIncoming = decide
+        model.incoming = request
+        if isOpen {
+            openReason = .incoming
+        } else {
+            open(.incoming, force: true)
+        }
+    }
+
+    func dismissIncoming() {
+        guard model.incoming != nil else { return }
+        model.incoming = nil
+        guard openReason == .incoming else { return }
+        if shelfRect.insetBy(dx: -20, dy: -20).contains(NSEvent.mouseLocation) {
+            openReason = .hover
+        } else {
+            close("incoming answered")
         }
     }
 

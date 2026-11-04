@@ -6,7 +6,7 @@
 - Nearby sharing with LocalSend: send shelf files to phones and computers running LocalSend on the same network, and receive files from them straight into the shelf.
 - Right-click a file on the shelf for Quick Look, Show in Finder, Send to Device… and Remove; Send All… sends the whole shelf.
 - Send to Device window that finds nearby devices and shows approval, progress and result for each.
-- Incoming files prompt with Accept and Decline; accepted files are saved to a folder you choose (Downloads by default).
+- Incoming files show right in the notch shelf, with the offered files and Accept / Decline; without a notch shelf a small window asks instead. Accepted files are saved to a folder you choose (Downloads by default).
 - Settings: Nearby Sharing, Receive Files, Device Name, Save To, and the Local Network permission status with a shortcut to System Settings.
 - Settings split into General, Shortcut, Sharing and Updates tabs.
 - Full menu bar while Settings is open: Check for Updates…, Edit (copy and paste in text fields), Shelf, Window and Help.

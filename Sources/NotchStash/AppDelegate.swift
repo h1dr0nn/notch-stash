@@ -38,7 +38,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         coordinator.start()
         localSend.start()
         updater.startAutomaticChecks()
-        incomingWindow = IncomingWindowController(service: localSend)
+        incomingWindow = IncomingWindowController(
+            service: localSend,
+            presentInNotch: { [weak self] request in
+                guard let self else { return false }
+                return self.coordinator.presentIncoming(request) { [weak self] accept in
+                    self?.localSend.decideIncoming(accept)
+                }
+            },
+            dismissInNotch: { [weak self] in self?.coordinator.dismissIncoming() }
+        )
         ShelfActions.shared.send = { [weak self] urls in self?.sendWindow.show(urls) }
         setUpStatusItem()
         setUpMainMenu()

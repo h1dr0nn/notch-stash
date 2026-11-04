@@ -164,7 +164,6 @@ private struct PeerRow: View {
 /// Asks whether to accept files offered by another device.
 private struct IncomingView: View {
     let request: LocalSendIncomingRequest
-    let saveFolder: String
     let decide: (Bool) -> Void
 
     var body: some View {
@@ -172,10 +171,10 @@ private struct IncomingView: View {
             Image(systemName: "arrow.down.circle.fill")
                 .font(.system(size: 38))
                 .foregroundStyle(Color.accentColor)
-            Text(title)
+            Text(request.headline)
                 .font(.headline)
                 .multilineTextAlignment(.center)
-            Text("\(ByteCountFormatter.string(fromByteCount: request.totalSize, countStyle: .file)) · saved to \(saveFolder)")
+            Text(request.detail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 3) {
@@ -197,11 +196,6 @@ private struct IncomingView: View {
         }
         .padding(20)
         .frame(width: 340)
-    }
-
-    private var title: String {
-        let count = request.files.count
-        return "\(request.sender.alias) wants to send you \(count == 1 ? "a file" : "\(count) files")"
     }
 }
 
@@ -242,9 +236,18 @@ final class IncomingWindowController: NSObject, NSWindowDelegate {
     private let service: LocalSendService
     private var window: NSWindow?
     private var cancellable: AnyCancellable?
+    private let presentInNotch: (LocalSendIncomingRequest) -> Bool
+    private let dismissInNotch: () -> Void
 
-    init(service: LocalSendService) {
+    /// `presentInNotch` returns false when no notch shelf can show the prompt; the window is used then.
+    init(
+        service: LocalSendService,
+        presentInNotch: @escaping (LocalSendIncomingRequest) -> Bool,
+        dismissInNotch: @escaping () -> Void
+    ) {
         self.service = service
+        self.presentInNotch = presentInNotch
+        self.dismissInNotch = dismissInNotch
         super.init()
         cancellable = service.$incoming
             .receive(on: DispatchQueue.main)
@@ -254,8 +257,8 @@ final class IncomingWindowController: NSObject, NSWindowDelegate {
     }
 
     private func show(_ request: LocalSendIncomingRequest) {
-        let folder = (AppSettings.shared.saveFolderPath as NSString).abbreviatingWithTildeInPath
-        let view = IncomingView(request: request, saveFolder: folder) { [weak self] accept in
+        if presentInNotch(request) { return }
+        let view = IncomingView(request: request) { [weak self] accept in
             self?.service.decideIncoming(accept)
         }
         let window = window ?? NSWindow(contentViewController: NSHostingController(rootView: view))
@@ -272,6 +275,7 @@ final class IncomingWindowController: NSObject, NSWindowDelegate {
     }
 
     private func dismiss() {
+        dismissInNotch()
         window?.delegate = nil
         window?.close()
         window?.delegate = self
