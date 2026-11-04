@@ -16,6 +16,10 @@ Notch Stash speaks the [LocalSend](https://localsend.org) protocol, so it can sw
 - **Receive:** when a device sends you files, accept the prompt. Files are saved to Downloads (change it in Settings) and appear on the shelf.
 - The first time, macOS asks to allow **Local Network** access. If you declined, turn it on in **System Settings → Privacy & Security → Local Network**.
 
+## Updates
+
+Notch Stash checks GitHub once a day. When a new version is out, the menu bar item shows **Update to …**; choose it, or **Update and Relaunch** in Settings, to download, verify and install it. Turn off automatic checks in Settings.
+
 ## Requirements
 
 - macOS 14 Sonoma or later

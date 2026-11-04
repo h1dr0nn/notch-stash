@@ -7,6 +7,7 @@ private struct SettingsView: View {
     let isShortcutActive: () -> Bool
     let onRecordingChange: (Bool) -> Void
     @ObservedObject var localNetwork: LocalNetworkPermission
+    @ObservedObject var updater: Updater
 
     var body: some View {
         Form {
@@ -123,14 +124,55 @@ private struct SettingsView: View {
                 }
             }
 
-            Section {
-                LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "–")
+            Section("Updates") {
+                Toggle(isOn: $settings.checkForUpdates) {
+                    Text("Check for Updates Automatically")
+                    Text("Looks for a new version on GitHub once a day.")
+                }
+                LabeledContent {
+                    updateControl
+                } label: {
+                    Text("Version \(updater.currentVersion)")
+                    Text(updateStatus)
+                }
             }
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+extension SettingsView {
+    @ViewBuilder
+    fileprivate var updateControl: some View {
+        switch updater.state {
+        case let .available(release):
+            HStack(spacing: 8) {
+                Button("Release Notes") { NSWorkspace.shared.open(release.pageURL) }
+                Button("Update and Relaunch") { Task { await updater.install(release) } }
+                    .keyboardShortcut(.defaultAction)
+            }
+        case let .downloading(fraction):
+            ProgressView(value: fraction).frame(width: 120)
+        case .checking, .installing:
+            ProgressView().controlSize(.small)
+        default:
+            Button("Check Now") { Task { await updater.check() } }
+        }
+    }
+
+    fileprivate var updateStatus: String {
+        switch updater.state {
+        case .idle: "Not checked yet."
+        case .checking: "Checking…"
+        case .upToDate: "Notch Stash is up to date."
+        case let .available(release): "Version \(release.version) is available."
+        case .downloading: "Downloading the update…"
+        case .installing: "Installing. Notch Stash will relaunch."
+        case let .failed(message): message
+        }
     }
 }
 
@@ -209,15 +251,18 @@ final class SettingsWindowController {
     private let isShortcutActive: () -> Bool
     private let onRecordingChange: (Bool) -> Void
     private let localNetwork: LocalNetworkPermission
+    private let updater: Updater
 
     init(
         isShortcutActive: @escaping () -> Bool,
         onRecordingChange: @escaping (Bool) -> Void,
-        localNetwork: LocalNetworkPermission
+        localNetwork: LocalNetworkPermission,
+        updater: Updater
     ) {
         self.isShortcutActive = isShortcutActive
         self.onRecordingChange = onRecordingChange
         self.localNetwork = localNetwork
+        self.updater = updater
     }
 
     func show() {
@@ -226,7 +271,8 @@ final class SettingsWindowController {
                 settings: .shared,
                 isShortcutActive: isShortcutActive,
                 onRecordingChange: onRecordingChange,
-                localNetwork: localNetwork
+                localNetwork: localNetwork,
+                updater: updater
             ))
             let window = NSWindow(contentViewController: hosting)
             window.title = "Notch Stash Settings"

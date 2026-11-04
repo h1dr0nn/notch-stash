@@ -66,6 +66,7 @@ final class AppSettings: ObservableObject {
     }
     @Published var showMenuBarIcon: Bool { didSet { save(showMenuBarIcon, Key.showMenuBarIcon) } }
     @Published private(set) var openAtLogin: Bool
+    @Published var checkForUpdates: Bool { didSet { save(checkForUpdates, Key.checkForUpdates) } }
     @Published var nearbySharingEnabled: Bool { didSet { save(nearbySharingEnabled, Key.nearbySharingEnabled) } }
     @Published var receiveFiles: Bool { didSet { save(receiveFiles, Key.receiveFiles) } }
     @Published var deviceName: String { didSet { save(deviceName, Key.deviceName) } }
@@ -81,6 +82,7 @@ final class AppSettings: ObservableObject {
         static let shortcutKind = "shortcutKind"
         static let keyCombo = "keyCombo"
         static let showMenuBarIcon = "showMenuBarIcon"
+        static let checkForUpdates = "checkForUpdates"
         static let nearbySharingEnabled = "nearbySharingEnabled"
         static let receiveFiles = "receiveFiles"
         static let deviceName = "deviceName"
@@ -99,6 +101,7 @@ final class AppSettings: ObservableObject {
             Key.hotkeyModifier: HotkeyModifier.control.rawValue,
             Key.shortcutKind: ShortcutKind.doubleTap.rawValue,
             Key.showMenuBarIcon: true,
+            Key.checkForUpdates: true,
             Key.nearbySharingEnabled: true,
             Key.receiveFiles: true,
             Key.saveFolderPath: FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path
@@ -115,6 +118,7 @@ final class AppSettings: ObservableObject {
         keyCombo = defaults.data(forKey: Key.keyCombo).flatMap { try? JSONDecoder().decode(KeyCombo.self, from: $0) }
         showMenuBarIcon = defaults.bool(forKey: Key.showMenuBarIcon)
         openAtLogin = SMAppService.mainApp.status == .enabled
+        checkForUpdates = defaults.bool(forKey: Key.checkForUpdates)
         nearbySharingEnabled = defaults.bool(forKey: Key.nearbySharingEnabled)
         receiveFiles = defaults.bool(forKey: Key.receiveFiles)
         deviceName = defaults.string(forKey: Key.deviceName) ?? Host.current().localizedName ?? "Mac"

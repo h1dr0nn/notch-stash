@@ -17,8 +17,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.isRecordingShortcut = recording
             self?.applyShortcut()
         },
-        localNetwork: localSend.localNetwork
+        localNetwork: localSend.localNetwork,
+        updater: updater
     )
+    private let updater = Updater()
     private var isRecordingShortcut = false
     private lazy var localSend = LocalSendService(store: coordinator.store)
     private lazy var sendWindow = SendWindowController(service: localSend)
@@ -35,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         coordinator.start()
         localSend.start()
+        updater.startAutomaticChecks()
         incomingWindow = IncomingWindowController(service: localSend)
         ShelfActions.shared.send = { [weak self] urls in self?.sendWindow.show(urls) }
         setUpStatusItem()
@@ -121,6 +124,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        if let release = updater.availableRelease {
+            menu.addItem(menuItem("Update to \(release.version)…", #selector(installUpdate)))
+            menu.addItem(.separator())
+        }
         if settings.floatingEnabled {
             menu.addItem(menuItem(coordinator.isFloatingVisible ? "Hide Shelf" : "Show Shelf", #selector(toggleShelf)))
         }
@@ -165,6 +172,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func clearShelf() {
         coordinator.store.removeAll()
+    }
+
+    @objc private func installUpdate() {
+        guard let release = updater.availableRelease else { return }
+        let alert = NSAlert()
+        alert.messageText = "Update to Notch Stash \(release.version)?"
+        alert.informativeText = "Notch Stash downloads the update from GitHub, replaces this version and relaunches."
+        alert.addButton(withTitle: "Update and Relaunch")
+        alert.addButton(withTitle: "Release Notes")
+        alert.addButton(withTitle: "Later")
+        NSApp.activate()
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: Task { await updater.install(release) }
+        case .alertSecondButtonReturn: NSWorkspace.shared.open(release.pageURL)
+        default: break
+        }
     }
 
     @objc private func openSettings() {
