@@ -310,6 +310,7 @@ final class SettingsWindowController {
                 height = max(height, NSHostingController(rootView: page).sizeThatFits(in: proposal).height)
                 let hosting = NSHostingController(rootView: page.frame(maxHeight: .infinity, alignment: .top))
                 hosting.sizingOptions = []
+                hosting.title = tab.title
                 pages.append(hosting)
                 let item = NSTabViewItem(viewController: hosting)
                 item.label = tab.title
