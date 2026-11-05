@@ -20,9 +20,15 @@ public final class ShelfStore: ObservableObject {
     @Published public private(set) var items: [ShelfItem] = []
 
     private let fileExists: (URL) -> Bool
+    private let preserve: (URL) -> URL
 
-    public init(fileExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }) {
+    /// `preserve` turns an added URL into the one the shelf keeps, such as a copy of a temporary file.
+    public init(
+        fileExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) },
+        preserve: @escaping (URL) -> URL = { $0 }
+    ) {
         self.fileExists = fileExists
+        self.preserve = preserve
     }
 
     public var isEmpty: Bool {
@@ -37,7 +43,7 @@ public final class ShelfStore: ObservableObject {
             let standardized = url.standardizedFileURL
             guard !seen.contains(standardized.path), fileExists(standardized) else { continue }
             seen.insert(standardized.path)
-            added.append(ShelfItem(url: standardized))
+            added.append(ShelfItem(url: preserve(standardized).standardizedFileURL))
         }
         items.append(contentsOf: added)
         return added

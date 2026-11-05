@@ -5,7 +5,8 @@ import NotchStashCore
 /// Ties the shared store to the notch windows and the floating panel.
 @MainActor
 final class ShelfCoordinator {
-    let store = ShelfStore()
+    private static let stash = DropStash.standard()
+    let store = ShelfStore(preserve: ShelfCoordinator.stash.preserve)
     private let settings = AppSettings.shared
     private var settingsCancellables: Set<AnyCancellable> = []
     private var notchControllers: [NotchController] = []
@@ -19,6 +20,7 @@ final class ShelfCoordinator {
     /// Tracked from the floating panel's callbacks; `panel.isVisible` stays true while it fades out.
     private var isFloatingShown = false
     private var pruneTimer: Timer?
+    private var stashCleanupTimer: Timer?
     private var cancellable: AnyCancellable?
 
     var isFloatingVisible: Bool { isFloatingShown }
@@ -59,6 +61,10 @@ final class ShelfCoordinator {
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { _ = self?.store.pruneMissing() }
         }
+        cleanUpStash()
+        stashCleanupTimer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.cleanUpStash() }
+        }
 
         cancellable = store.$items
             .map(\.isEmpty)
@@ -66,6 +72,14 @@ final class ShelfCoordinator {
             .dropFirst()
             .filter { $0 }
             .sink { [weak self] _ in self?.closeAll() }
+    }
+
+    /// Copies of temporary files stay an hour after leaving the shelf, for apps still reading a dragged copy.
+    private func cleanUpStash() {
+        let inUse = store.items.map(\.url)
+        DispatchQueue.global(qos: .utility).async {
+            Self.stash.removeUnused(keeping: inUse, minimumAge: 3600)
+        }
     }
 
     func toggle() {

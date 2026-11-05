@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.9 — 2026-11-05
+
+### Fixed
+- Mac: files dropped from a screenshot thumbnail, a browser or Photos vanished from the shelf a few seconds later, or when the next one was dropped. Those apps hand over a temporary file they soon delete; Notch Stash now keeps its own copy of such files while they are on the shelf.
+
 ## 0.6.8 — 2026-11-05
 
 ### Fixed

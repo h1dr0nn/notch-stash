@@ -70,3 +70,62 @@ final class ShelfStoreTests: XCTestCase {
         XCTAssertEqual(store.add([URL(fileURLWithPath: "/")]).count, 1)
     }
 }
+
+final class DropStashTests: XCTestCase {
+    private var root: URL!
+    private var source: URL!
+
+    override func setUpWithError() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("DropStashTests-\(UUID().uuidString)")
+        root = base.appendingPathComponent("stash")
+        source = base.appendingPathComponent("Screenshot.png")
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        try Data("pixels".utf8).write(to: source)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: root.deletingLastPathComponent())
+    }
+
+    func testRecognisesTemporaryFolders() {
+        XCTAssertTrue(DropStash.isTemporary(source))
+        XCTAssertTrue(DropStash.isTemporary(URL(fileURLWithPath: "/private/tmp/a.png")))
+        XCTAssertFalse(DropStash.isTemporary(URL(fileURLWithPath: "/Users/someone/Desktop/a.png")))
+    }
+
+    func testCopiesTemporaryFileAndKeepsItsName() throws {
+        let stash = DropStash(root: root)
+        let kept = stash.preserve(source)
+        XCTAssertNotEqual(kept, source)
+        XCTAssertEqual(kept.lastPathComponent, "Screenshot.png")
+        try FileManager.default.removeItem(at: source)
+        XCTAssertEqual(try Data(contentsOf: kept), Data("pixels".utf8))
+    }
+
+    func testLeavesOtherFilesAsReferences() {
+        let stash = DropStash(root: root)
+        let desktop = URL(fileURLWithPath: "/Users/someone/Desktop/a.png")
+        XCTAssertEqual(stash.preserve(desktop), desktop)
+    }
+
+    func testRemovesOnlyOldCopiesNotOnTheShelf() {
+        let stash = DropStash(root: root)
+        let onShelf = stash.preserve(source)
+        let dropped = stash.preserve(source)
+        stash.removeUnused(keeping: [onShelf], minimumAge: 3600)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dropped.path), "young copies stay")
+        stash.removeUnused(keeping: [onShelf], minimumAge: 3600, now: Date().addingTimeInterval(7200))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dropped.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: onShelf.path))
+    }
+
+    @MainActor
+    func testStoreKeepsThePreservedCopy() throws {
+        let stash = DropStash(root: root)
+        let store = ShelfStore(preserve: stash.preserve)
+        store.add([source])
+        try FileManager.default.removeItem(at: source)
+        XCTAssertEqual(store.pruneMissing(), 0)
+        XCTAssertEqual(store.items.map(\.name), ["Screenshot.png"])
+    }
+}
