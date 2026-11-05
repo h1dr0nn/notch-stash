@@ -77,8 +77,9 @@ final class ShelfCoordinator {
     /// Copies of temporary files stay an hour after leaving the shelf, for apps still reading a dragged copy.
     private func cleanUpStash() {
         let inUse = store.items.map(\.url)
+        let stash = Self.stash
         DispatchQueue.global(qos: .utility).async {
-            Self.stash.removeUnused(keeping: inUse, minimumAge: 3600)
+            stash.removeUnused(keeping: inUse, minimumAge: 3600)
         }
     }
 
