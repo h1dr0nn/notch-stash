@@ -86,7 +86,7 @@ final class NotchController {
     let notchRect: CGRect
     private let store: ShelfStore
     private let model: NotchModel
-    private let panel: ShelfPanel
+    private var panel: ShelfPanel
     private(set) var openReason: OpenReason?
     var opensOnHover = true
     var isEnabled = true {
@@ -106,11 +106,19 @@ final class NotchController {
         model = NotchModel(notchSize: notchRect.size, openedSize: openedSize)
         let windowSize = CGSize(width: openedSize.width + Self.shadowMargin * 2, height: openedSize.height + Self.shadowMargin)
         openedFrame = NotchGeometry.topCenteredRect(in: screen.frame, size: windowSize)
-        panel = ShelfPanel(
+        panel = Self.makePanel(notchRect: notchRect)
+        installContent()
+    }
+
+    private static func makePanel(notchRect: CGRect) -> ShelfPanel {
+        ShelfPanel(
             contentRect: notchRect,
             level: NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 8),
             hasShadow: false
         )
+    }
+
+    private func installContent() {
         let root = NotchRootView(
             model: model,
             store: store,
@@ -129,6 +137,20 @@ final class NotchController {
         panel.setFrame(openedFrame, display: false)
     }
 
+    /// Now and then macOS stops showing the panel on every Space and keeps it on the one it was last
+    /// shown on (seen after dropping files on it); it then opens unseen on any other Space. Changing the
+    /// collection behaviour does not undo that, so a fresh panel takes its place.
+    private func ensureOnActiveSpace() {
+        guard !panel.isOnActiveSpace else { return }
+        log.notice("panel left the active Space, rebuilding it")
+        let stale = panel
+        panel = Self.makePanel(notchRect: notchRect)
+        installContent()
+        stale.orderOut(nil)
+        stale.close()
+        panel.orderFrontRegardless()
+    }
+
     func open(_ reason: OpenReason, force: Bool = false) {
         guard isEnabled || force, !isOpen else { return }
         log.notice("open \(String(describing: reason), privacy: .public)")
@@ -136,6 +158,7 @@ final class NotchController {
         layoutGeneration += 1
         panel.contentView?.layoutSubtreeIfNeeded()
         panel.orderFrontRegardless()
+        ensureOnActiveSpace()
         model.showsShape = true
         DispatchQueue.main.async { [weak self] in
             guard let self, self.isOpen else { return }
@@ -167,6 +190,7 @@ final class NotchController {
     func spaceChanged(pointer: CGPoint) {
         guard isOpen else { return }
         panel.orderFrontRegardless()
+        ensureOnActiveSpace()
         if openReason != .incoming, !shelfRect.insetBy(dx: -20, dy: -20).contains(pointer) {
             close("space changed")
         }

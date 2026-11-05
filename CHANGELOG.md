@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.8 — 2026-11-05
+
+### Fixed
+- Mac: after files were dropped on the notch shelf, it could stop appearing on other Spaces; pointing at the notch there did nothing until you went back to the first Space. The shelf now notices and shows up on the Space you are on.
+
 ## 0.6.7 — 2026-11-04
 
 ### Fixed
